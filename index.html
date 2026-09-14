@@ -118,6 +118,14 @@
     font-family:'Barlow Condensed', sans-serif; font-size:13px; font-weight:600;
     letter-spacing:0.4px; color: var(--accent); margin-bottom:5px;
   }
+  .card-label-row{ display:flex; align-items:center; justify-content:space-between; margin-bottom:5px; }
+  .card-label-row .card-label{ margin-bottom:0; }
+  .replay-btn{
+    background: var(--bg-raised); border:1px solid var(--border); color: var(--accent);
+    width:30px; height:30px; border-radius:50%; font-size:15px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; line-height:1; padding:0;
+    flex-shrink:0;
+  }
   .card-text{ font-size:18px; line-height:1.42; color: var(--text); }
   .card.original{ border-radius: var(--radius) var(--radius) 0 0; }
   .card.translation{ border-radius: 0 0 var(--radius) var(--radius); border-top:none; }
@@ -243,7 +251,7 @@
 
   <header>
     <div class="header-row1">
-      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v21</span></h1>
+      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v22</span></h1>
       <button class="gear-btn" id="settingsBtn" aria-label="Podešavanja">⚙</button>
     </div>
     <div class="lang-row" id="langRow"></div>
@@ -289,7 +297,10 @@
       <div class="accordion-body" id="secApi">
         <div class="field">
           <label>Gemini API ključ</label>
-          <input type="text" id="apiKeyInput" placeholder="Nalepi ključ ovde">
+          <div style="display:flex; gap:8px;">
+            <input type="password" id="apiKeyInput" placeholder="Nalepi ključ ovde" style="flex:1;" autocomplete="off">
+            <button type="button" class="btn btn-ghost" id="toggleApiKeyBtn" style="padding:10px 14px;">👁</button>
+          </div>
           <div class="field-hint">Čuva se samo lokalno na ovom telefonu, ne ide u kod aplikacije.</div>
         </div>
         <div class="field">
@@ -439,6 +450,7 @@ const settingsBtn = document.getElementById('settingsBtn');
 const closeSettingsBtn = document.getElementById('closeSettingsBtn');
 const settingsXBtn = document.getElementById('settingsXBtn');
 const apiKeyInput = document.getElementById('apiKeyInput');
+const toggleApiKeyBtn = document.getElementById('toggleApiKeyBtn');
 const rateSlider = document.getElementById('rateSlider');
 const langListWrap = document.getElementById('langListWrap');
 const langSelect = document.getElementById('langSelect');
@@ -551,6 +563,8 @@ function updateAccordionCounts(){
 /* ============ settings modal ============ */
 function openSettings(){
   apiKeyInput.value = apiKey;
+  apiKeyInput.type = 'password';
+  toggleApiKeyBtn.textContent = '👁';
   rateSlider.value = speechRate;
   renderLangList();
   renderLangSelect();
@@ -559,6 +573,11 @@ function openSettings(){
   updateAccordionCounts();
   openModal(settingsOverlay, 'settings');
 }
+toggleApiKeyBtn.onclick = ()=>{
+  const hidden = apiKeyInput.type === 'password';
+  apiKeyInput.type = hidden ? 'text' : 'password';
+  toggleApiKeyBtn.textContent = hidden ? '🙈' : '👁';
+};
 function persistSettingsFields(){
   apiKey = apiKeyInput.value.trim();
   localStorage.setItem('vp_apikey', apiKey);
@@ -687,7 +706,8 @@ function buildTurnPair(turn){
 
   const c2 = document.createElement('div');
   c2.className = 'card translation';
-  c2.innerHTML = `<div class="card-label">${translationLabel}</div><div class="card-text">${escapeHtml(turn.translatedText)}</div>`;
+  c2.innerHTML = `<div class="card-label-row"><div class="card-label">${translationLabel}</div><button class="replay-btn" aria-label="Ponovi izgovor">🔊</button></div><div class="card-text">${escapeHtml(turn.translatedText)}</div>`;
+  c2.querySelector('.replay-btn').onclick = ()=> speak(turn.translatedText, turn.targetLangCode);
 
   wrap.appendChild(c1);
   wrap.appendChild(c2);
@@ -875,6 +895,7 @@ Sirovi tekst:
       direction,
       sourceLangLabel,
       targetLangLabel: target.label,
+      targetLangCode: target.code,
       cleanedText: parsed.cleaned || rawText,
       translatedText: parsed.translation || '',
       ts: Date.now()

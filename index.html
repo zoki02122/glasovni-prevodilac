@@ -139,7 +139,6 @@
   .card-label-row{ display:flex; align-items:center; justify-content:space-between; margin-bottom:5px; }
   .card-label-row .card-label{ margin-bottom:0; }
   .card-actions{ display:flex; align-items:center; gap:8px; flex-shrink:0; }
-  .turn-pair.saved .card{ box-shadow: inset 3px 0 0 var(--accent-bright); }
   .replay-btn{
     background: var(--bg-raised); border:1px solid var(--border); color: var(--accent);
     width:30px; height:30px; border-radius:50%; font-size:15px; cursor:pointer;
@@ -168,6 +167,25 @@
   .btn-ghost{ background:none; color: var(--text-dim); border:1px solid var(--border); }
 
   .turn-meta-row{ padding: 6px 18px 0; }
+
+  .saved-item{ background: var(--bg-card); border:1px solid var(--border); border-radius:12px; margin-bottom:10px; overflow:hidden; }
+  .saved-item-header{ display:flex; align-items:center; gap:8px; padding:12px 14px; cursor:pointer; }
+  .saved-item-name{
+    flex:1; font-weight:600; font-size:15px; color: var(--text);
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .saved-item-date{ font-size:12px; color: var(--text-dim); flex-shrink:0; }
+  .saved-icon-btn{
+    background:none; border:none; color: var(--text-dim); font-size:17px;
+    cursor:pointer; padding:4px; flex-shrink:0; line-height:1;
+  }
+  .saved-icon-btn.pinned{ color: var(--accent); }
+  .saved-detail{ display:none; padding:0 14px 14px; }
+  .saved-detail.open{ display:block; }
+  .saved-rename-input{
+    flex:1; background: var(--bg-raised); border:1px solid var(--border); border-radius:8px;
+    padding:6px 10px; color: var(--text); font-family:'Barlow', sans-serif; font-size:15px;
+  }
 
   /* ---------- mic ---------- */
   .mic-dock{
@@ -247,8 +265,9 @@
 
   <header>
     <div class="header-row1">
-      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v33</span></h1>
+      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v34</span></h1>
       <div class="header-actions">
+        <button class="gear-btn" id="openSavedBtn" aria-label="Sačuvano">⭐</button>
         <button class="gear-btn" id="quickClearBtn" aria-label="Obriši razgovor">🗑</button>
         <button class="gear-btn" id="settingsBtn" aria-label="Podešavanja">⚙</button>
       </div>
@@ -370,6 +389,20 @@
   </div>
 </div>
 
+<!-- Saved items -->
+<div class="modal-overlay" id="savedOverlay" style="display:none;">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Sačuvano</h2>
+      <button class="modal-close" id="savedXBtn" aria-label="Zatvori">✕</button>
+    </div>
+    <div class="field">
+      <input type="text" id="savedSearchInput" placeholder="Pretraži sačuvano..." autocomplete="off">
+    </div>
+    <div id="savedListWrap"></div>
+  </div>
+</div>
+
 <script>
 /* ============ state ============ */
 const DEFAULT_LANGS = [
@@ -429,6 +462,7 @@ let langs = JSON.parse(localStorage.getItem('vp_languages') || 'null') || DEFAUL
 let selectedLangCode = localStorage.getItem('vp_selectedLangCode') || (DEFAULT_LANGS[0] && DEFAULT_LANGS[0].code);
 let direction = localStorage.getItem('vp_direction') || 'mine'; // 'mine' | 'guest'
 let chatHistory = JSON.parse(localStorage.getItem('vp_history') || '[]');
+let savedItems = JSON.parse(localStorage.getItem('vp_saved') || '[]');
 let apiKey = localStorage.getItem('vp_apikey') || '';
 let speechRate = parseFloat(localStorage.getItem('vp_rate') || '1');
 
@@ -447,6 +481,11 @@ const micStatus = document.getElementById('micStatus');
 const settingsOverlay = document.getElementById('settingsOverlay');
 const settingsBtn = document.getElementById('settingsBtn');
 const quickClearBtn = document.getElementById('quickClearBtn');
+const openSavedBtn = document.getElementById('openSavedBtn');
+const savedOverlay = document.getElementById('savedOverlay');
+const savedXBtn = document.getElementById('savedXBtn');
+const savedSearchInput = document.getElementById('savedSearchInput');
+const savedListWrap = document.getElementById('savedListWrap');
 const closeSettingsBtn = document.getElementById('closeSettingsBtn');
 const settingsXBtn = document.getElementById('settingsXBtn');
 const apiKeyInput = document.getElementById('apiKeyInput');
@@ -470,6 +509,7 @@ const confirmOk = document.getElementById('confirmOk');
 /* ============ persistence ============ */
 function saveLangs(){ localStorage.setItem('vp_languages', JSON.stringify(langs)); }
 function saveHistory(){ localStorage.setItem('vp_history', JSON.stringify(chatHistory)); }
+function saveSavedItems(){ localStorage.setItem('vp_saved', JSON.stringify(savedItems)); }
 function saveSelected(){ localStorage.setItem('vp_selectedLangCode', selectedLangCode); }
 function getSelectedLang(){
   return langs.find(l=>l.code===selectedLangCode) || langs[0];
@@ -550,6 +590,7 @@ window.addEventListener('popstate', ()=>{
   if(settingsOverlay.style.display === 'flex'){ persistSettingsFields(); }
   settingsOverlay.style.display = 'none';
   confirmOverlay.style.display = 'none';
+  savedOverlay.style.display = 'none';
 });
 
 /* ============ accordion ============ */
@@ -675,19 +716,117 @@ addLangBtn.onclick = ()=>{
   updateAccordionCounts();
 };
 async function clearHistory(){
-  const savedCount = chatHistory.filter(t=>t.saved).length;
-  const body = savedCount > 0
-    ? `Ovo briše sve zapisane razgovore osim ${savedCount} sačuvanih (⭐) — one ostaju.`
-    : 'Ovo trajno briše sve zapisane razgovore sa ovog telefona.';
-  const ok = await customConfirm('Obriši istoriju?', body);
+  const ok = await customConfirm('Obriši istoriju?', 'Ovo trajno briše sve zapisane razgovore sa ovog telefona. Sačuvano (⭐) ostaje netaknuto, jer se čuva odvojeno.');
   if(!ok) return;
-  chatHistory = chatHistory.filter(t=>t.saved);
+  chatHistory = [];
   saveHistory();
   renderFeed();
   updateAccordionCounts();
 }
 clearHistoryBtn.onclick = clearHistory;
 quickClearBtn.onclick = clearHistory;
+
+/* ============ saved items (separate library, outside the main feed) ============ */
+function formatSavedDate(ts){
+  const d = new Date(ts);
+  const datePart = d.toLocaleDateString('sr-RS', { day:'2-digit', month:'2-digit' });
+  const timePart = d.toLocaleTimeString('sr-RS', { hour:'2-digit', minute:'2-digit' });
+  return `${datePart} ${timePart}`;
+}
+
+function renderSavedList(){
+  const filter = savedSearchInput.value.trim().toLowerCase();
+  savedListWrap.innerHTML = '';
+
+  let items = savedItems.filter(it=>{
+    if(!filter) return true;
+    return (it.name + ' ' + it.cleanedText + ' ' + it.translatedText).toLowerCase().includes(filter);
+  });
+  items.sort((a,b)=>{
+    if(a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+    return b.savedAt - a.savedAt;
+  });
+
+  if(items.length === 0){
+    const empty = document.createElement('div');
+    empty.style.cssText = 'color:var(--text-dim); font-size:14px; text-align:center; padding:24px 0;';
+    empty.textContent = savedItems.length === 0 ? 'Još ništa nije sačuvano.' : 'Nema rezultata za tu pretragu.';
+    savedListWrap.appendChild(empty);
+    return;
+  }
+
+  items.forEach(item=>{
+    const el = document.createElement('div');
+    el.className = 'saved-item';
+    el.innerHTML = `
+      <div class="saved-item-header">
+        <button class="saved-icon-btn pin-btn ${item.pinned ? 'pinned' : ''}" aria-label="Pinuj">${item.pinned ? '📌' : '📍'}</button>
+        <div class="saved-item-name">${escapeHtml(item.name)}</div>
+        <div class="saved-item-date">${formatSavedDate(item.savedAt)}</div>
+      </div>
+      <div class="saved-detail" id="saved-detail-${item.id}">
+        <div class="card-label">${item.direction==='mine' ? 'TI' : 'GOST · ' + escapeHtml(item.sourceLangLabel)}</div>
+        <div class="card-text" style="margin-bottom:10px;">${escapeHtml(item.cleanedText)}</div>
+        <div class="card-label">${item.direction==='mine' ? escapeHtml(item.targetLangLabel) : 'TI (srpski)'}</div>
+        <div class="card-text" style="margin-bottom:12px;">${escapeHtml(item.translatedText)}</div>
+        <div class="review-actions">
+          <button class="btn btn-ghost rename-btn">Preimenuj</button>
+          <button class="btn btn-ghost speak-saved-btn">🔊 Izgovori</button>
+          <button class="btn btn-ghost delete-saved-btn" style="color:var(--danger); border-color:var(--danger);">Obriši</button>
+        </div>
+      </div>
+    `;
+    const header = el.querySelector('.saved-item-header');
+    const detail = el.querySelector('.saved-detail');
+
+    header.onclick = (e)=>{
+      if(e.target.closest('.pin-btn')) return;
+      detail.classList.toggle('open');
+    };
+    el.querySelector('.pin-btn').onclick = (e)=>{
+      e.stopPropagation();
+      item.pinned = !item.pinned;
+      saveSavedItems();
+      renderSavedList();
+    };
+    el.querySelector('.speak-saved-btn').onclick = ()=> speak(item.translatedText, item.targetLangCode);
+    el.querySelector('.rename-btn').onclick = ()=>{
+      const nameDiv = el.querySelector('.saved-item-name');
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = item.name;
+      input.className = 'saved-rename-input';
+      nameDiv.replaceWith(input);
+      input.focus();
+      input.select();
+      const commit = ()=>{
+        const v = input.value.trim();
+        if(v) item.name = v;
+        saveSavedItems();
+        renderSavedList();
+      };
+      input.addEventListener('blur', commit);
+      input.addEventListener('keydown', (ev)=>{ if(ev.key === 'Enter'){ ev.preventDefault(); input.blur(); } });
+    };
+    el.querySelector('.delete-saved-btn').onclick = async ()=>{
+      const ok = await customConfirm('Obriši sačuvano?', `Obrisati "${item.name}" iz sačuvanog? Ovo se ne može vratiti.`);
+      if(!ok) return;
+      savedItems = savedItems.filter(x=>x.id !== item.id);
+      saveSavedItems();
+      renderSavedList();
+    };
+
+    savedListWrap.appendChild(el);
+  });
+}
+
+openSavedBtn.onclick = ()=>{
+  savedSearchInput.value = '';
+  renderSavedList();
+  openModal(savedOverlay, 'saved');
+};
+savedXBtn.onclick = ()=> closeModal(savedOverlay);
+savedSearchInput.addEventListener('input', renderSavedList);
 
 /* ============ feed rendering ============ */
 function renderFeed(){
@@ -711,18 +850,36 @@ function renderFeed(){
 
 function buildTurnPair(turn, idx){
   const wrap = document.createElement('div');
-  wrap.className = 'turn-pair' + (turn.saved ? ' saved' : '');
+  wrap.className = 'turn-pair';
 
   const originalLabel = turn.direction==='mine' ? 'TI' : `GOST · ${escapeHtml(turn.sourceLangLabel)}`;
   const translationLabel = turn.direction==='mine' ? escapeHtml(turn.targetLangLabel) : 'TI (srpski)';
 
   const c1 = document.createElement('div');
   c1.className = 'card original';
-  c1.innerHTML = `<div class="card-label-row"><div class="card-label">${originalLabel}</div><div class="card-actions"><button class="replay-btn star-btn" aria-label="Sačuvaj">${turn.saved ? '⭐' : '☆'}</button><button class="replay-btn" aria-label="Ispravi">✎</button></div></div><div class="card-text">${escapeHtml(turn.cleanedText)}</div>`;
+  c1.innerHTML = `<div class="card-label-row"><div class="card-label">${originalLabel}</div><div class="card-actions"><button class="replay-btn star-btn" aria-label="Sačuvaj">☆</button><button class="replay-btn" aria-label="Ispravi">✎</button></div></div><div class="card-text">${escapeHtml(turn.cleanedText)}</div>`;
   c1.querySelector('.star-btn').onclick = ()=>{
-    chatHistory[idx].saved = !chatHistory[idx].saved;
+    const t = chatHistory[idx];
+    const item = {
+      id: 'sv_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+      name: t.cleanedText.length > 40 ? t.cleanedText.slice(0,40) + '…' : t.cleanedText,
+      direction: t.direction,
+      sourceLangLabel: t.sourceLangLabel,
+      targetLangLabel: t.targetLangLabel,
+      targetLangCode: t.targetLangCode,
+      cleanedText: t.cleanedText,
+      translatedText: t.translatedText,
+      pinned: false,
+      savedAt: Date.now()
+    };
+    savedItems.unshift(item);
+    saveSavedItems();
+    chatHistory.splice(idx, 1);
     saveHistory();
     renderFeed();
+    updateAccordionCounts();
+    micStatus.textContent = 'Sačuvano ⭐';
+    setTimeout(()=>{ if(recState==='idle') micStatus.textContent=''; }, 1800);
   };
   c1.querySelectorAll('.replay-btn')[1].onclick = ()=> startCorrection(c1, idx);
 

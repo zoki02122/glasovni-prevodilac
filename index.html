@@ -54,9 +54,10 @@
     font-size: 22px; font-weight: 600; letter-spacing: 0.2px; margin:0;
     color: var(--text);
   }
+  .header-actions{ display:flex; align-items:center; gap:4px; }
   .gear-btn{
     background:none; border:none; color: var(--text-dim);
-    font-size: 20px; padding: 6px; cursor:pointer; line-height:1;
+    font-size: 24px; padding: 8px; cursor:pointer; line-height:1;
   }
   .lang-row{
     display:flex; gap:8px; overflow-x:auto; padding-bottom:8px;
@@ -137,6 +138,8 @@
   }
   .card-label-row{ display:flex; align-items:center; justify-content:space-between; margin-bottom:5px; }
   .card-label-row .card-label{ margin-bottom:0; }
+  .card-actions{ display:flex; align-items:center; gap:8px; flex-shrink:0; }
+  .turn-pair.saved .card{ box-shadow: inset 3px 0 0 var(--accent-bright); }
   .replay-btn{
     background: var(--bg-raised); border:1px solid var(--border); color: var(--accent);
     width:30px; height:30px; border-radius:50%; font-size:15px; cursor:pointer;
@@ -244,8 +247,11 @@
 
   <header>
     <div class="header-row1">
-      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v32</span></h1>
-      <button class="gear-btn" id="settingsBtn" aria-label="Podešavanja">⚙</button>
+      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v33</span></h1>
+      <div class="header-actions">
+        <button class="gear-btn" id="quickClearBtn" aria-label="Obriši razgovor">🗑</button>
+        <button class="gear-btn" id="settingsBtn" aria-label="Podešavanja">⚙</button>
+      </div>
     </div>
     <div class="lang-row" id="langRow"></div>
   </header>
@@ -440,6 +446,7 @@ const micStatus = document.getElementById('micStatus');
 
 const settingsOverlay = document.getElementById('settingsOverlay');
 const settingsBtn = document.getElementById('settingsBtn');
+const quickClearBtn = document.getElementById('quickClearBtn');
 const closeSettingsBtn = document.getElementById('closeSettingsBtn');
 const settingsXBtn = document.getElementById('settingsXBtn');
 const apiKeyInput = document.getElementById('apiKeyInput');
@@ -667,14 +674,20 @@ addLangBtn.onclick = ()=>{
   renderLangList(); renderLangRow(); renderLangSelect();
   updateAccordionCounts();
 };
-clearHistoryBtn.onclick = async ()=>{
-  const ok = await customConfirm('Obriši istoriju?', 'Ovo trajno briše sve zapisane razgovore sa ovog telefona.');
+async function clearHistory(){
+  const savedCount = chatHistory.filter(t=>t.saved).length;
+  const body = savedCount > 0
+    ? `Ovo briše sve zapisane razgovore osim ${savedCount} sačuvanih (⭐) — one ostaju.`
+    : 'Ovo trajno briše sve zapisane razgovore sa ovog telefona.';
+  const ok = await customConfirm('Obriši istoriju?', body);
   if(!ok) return;
-  chatHistory = [];
+  chatHistory = chatHistory.filter(t=>t.saved);
   saveHistory();
   renderFeed();
   updateAccordionCounts();
-};
+}
+clearHistoryBtn.onclick = clearHistory;
+quickClearBtn.onclick = clearHistory;
 
 /* ============ feed rendering ============ */
 function renderFeed(){
@@ -698,15 +711,20 @@ function renderFeed(){
 
 function buildTurnPair(turn, idx){
   const wrap = document.createElement('div');
-  wrap.className = 'turn-pair';
+  wrap.className = 'turn-pair' + (turn.saved ? ' saved' : '');
 
   const originalLabel = turn.direction==='mine' ? 'TI' : `GOST · ${escapeHtml(turn.sourceLangLabel)}`;
   const translationLabel = turn.direction==='mine' ? escapeHtml(turn.targetLangLabel) : 'TI (srpski)';
 
   const c1 = document.createElement('div');
   c1.className = 'card original';
-  c1.innerHTML = `<div class="card-label-row"><div class="card-label">${originalLabel}</div><button class="replay-btn" aria-label="Ispravi">✎</button></div><div class="card-text">${escapeHtml(turn.cleanedText)}</div>`;
-  c1.querySelector('.replay-btn').onclick = ()=> startCorrection(c1, idx);
+  c1.innerHTML = `<div class="card-label-row"><div class="card-label">${originalLabel}</div><div class="card-actions"><button class="replay-btn star-btn" aria-label="Sačuvaj">${turn.saved ? '⭐' : '☆'}</button><button class="replay-btn" aria-label="Ispravi">✎</button></div></div><div class="card-text">${escapeHtml(turn.cleanedText)}</div>`;
+  c1.querySelector('.star-btn').onclick = ()=>{
+    chatHistory[idx].saved = !chatHistory[idx].saved;
+    saveHistory();
+    renderFeed();
+  };
+  c1.querySelectorAll('.replay-btn')[1].onclick = ()=> startCorrection(c1, idx);
 
   const c2 = document.createElement('div');
   c2.className = 'card translation';

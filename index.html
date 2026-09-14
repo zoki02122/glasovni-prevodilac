@@ -213,6 +213,7 @@
     position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:50;
     display:flex; align-items:flex-end; justify-content:center;
   }
+  #confirmOverlay{ z-index:60; }
   .modal{
     width:100%; max-width:480px; background: var(--bg-raised);
     border-radius: 18px 18px 0 0; padding: 18px 18px calc(22px + env(safe-area-inset-bottom,0px));
@@ -274,7 +275,7 @@
 
   <header>
     <div class="header-row1">
-      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v36</span></h1>
+      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v37</span></h1>
       <div class="header-actions">
         <button class="gear-btn" id="openSavedBtn" aria-label="Sačuvano">⭐</button>
         <button class="gear-btn" id="quickClearBtn" aria-label="Obriši razgovor">🗑</button>
@@ -826,7 +827,7 @@ function renderSavedList(){
     el.innerHTML = `
       <div class="saved-item-header">
         <button class="saved-icon-btn pin-btn ${!selectionMode && item.pinned ? 'pinned' : ''}" aria-label="Pinuj">${leftIcon}</button>
-        <div class="saved-item-name">${escapeHtml(item.name)}</div>
+        <div class="saved-item-name">${item.pinned ? '📌 ' : ''}${escapeHtml(item.name)}</div>
         <div class="saved-item-date">${formatSavedDate(item.savedAt)}</div>
       </div>
       <div class="saved-detail" id="saved-detail-${item.id}">

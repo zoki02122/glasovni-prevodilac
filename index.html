@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Glasovni prevodilac</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#15161a">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Prevodilac">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #15161a;
+    --bg-raised: #1d1f24;
+    --bg-card: #202226;
+    --border: #2c2e34;
+    --text: #e9e8e4;
+    --text-dim: #9a9a9f;
+    --accent: #c9974a;
+    --accent-bright: #e0b06a;
+    --accent-dim: #8a6a35;
+    --danger: #c25b4a;
+    --radius: 14px;
+  }
+  *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body{
+    margin:0; padding:0; height:100%;
+    background: var(--bg); color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    overscroll-behavior-y: contain;
+  }
+  h1,h2,h3, .num{ font-family: 'Barlow Condensed', sans-serif; }
+
+  /* ---------- layout ---------- */
+  #app{ display:flex; flex-direction:column; height:100dvh; }
+
+  header{
+    position: sticky; top:0; z-index:20;
+    background: var(--bg-raised);
+    border-bottom: 1px solid var(--border);
+    padding: calc(10px + env(safe-area-inset-top,0px)) 14px 10px;
+  }
+  .header-row1{
+    display:flex; align-items:center; justify-content:space-between;
+    padding-top: 8px; margin-bottom: 10px;
+  }
+  .title{
+    font-size: 22px; font-weight: 600; letter-spacing: 0.2px; margin:0;
+    color: var(--text);
+  }
+  .gear-btn{
+    background:none; border:none; color: var(--text-dim);
+    font-size: 20px; padding: 6px; cursor:pointer; line-height:1;
+  }
+  .lang-row{
+    display:flex; gap:8px; overflow-x:auto; padding-bottom:8px;
+    scrollbar-width:none;
+  }
+  .lang-row::-webkit-scrollbar{ display:none; }
+  .lang-btn{
+    flex: 0 0 auto;
+    background: var(--bg-card); border:1px solid var(--border);
+    color: var(--text-dim); font-family:'Barlow', sans-serif;
+    font-size: 15px; font-weight:500; padding: 8px 16px;
+    border-radius: 999px; white-space:nowrap; cursor:pointer;
+  }
+  .lang-btn.active{
+    background: linear-gradient(135deg, var(--accent-bright), var(--accent-dim));
+    color: #1a1408; border-color: transparent; font-weight:600;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.35);
+  }
+  .lang-btn.add{ color: var(--accent); border-color: var(--accent-dim); }
+  .lang-btn:disabled, .side-toggle:disabled{ opacity:0.4; cursor:not-allowed; }
+
+  .mic-row{ display:flex; align-items:center; justify-content:space-between; pointer-events:none; padding: 0 8px; width:100%; box-sizing:border-box; }
+  .side-toggle{
+    pointer-events:auto; width:96px; flex:none;
+    text-align:center; padding: 10px 4px; border-radius: 999px;
+    font-size:13.5px; font-weight:600; color: var(--text-dim); cursor:pointer;
+    font-family:'Barlow', sans-serif; line-height:1.25;
+    background: var(--bg-card); border:1px solid var(--border);
+  }
+  .side-toggle.active{
+    background: linear-gradient(135deg, var(--accent-bright), var(--accent-dim));
+    color:#1a1408;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.35);
+    border-color: transparent;
+  }
+
+  /* ---------- feed ---------- */
+  main{
+    flex:1; overflow-y:auto; padding: 14px 0 140px;
+    display:flex; flex-direction:column;
+  }
+  .empty-state{
+    margin:auto; text-align:center; color: var(--text-dim);
+    padding: 0 30px;
+  }
+  .empty-state .num{ font-size:46px; color: var(--accent-dim); margin-bottom:6px; }
+  .empty-state p{ font-size:15px; line-height:1.5; margin:4px 0 0; }
+
+  .turn-divider{
+    background:#e0b06a;
+    margin: 16px 14px; border-radius:6px;
+  }
+  .turn-pair{ display:flex; flex-direction:column; gap:2px; padding: 0 0; }
+  .card{
+    width:100%; padding: 14px 18px; background: var(--bg-card);
+    border-top:1px solid var(--border); border-bottom:1px solid var(--border);
+  }
+  .card-label{
+    font-family:'Barlow Condensed', sans-serif; font-size:13px; font-weight:600;
+    letter-spacing:0.4px; color: var(--accent); margin-bottom:5px;
+  }
+  .card-text{ font-size:18px; line-height:1.42; color: var(--text); }
+  .card.original{ border-radius: var(--radius) var(--radius) 0 0; }
+  .card.translation{ border-radius: 0 0 var(--radius) var(--radius); border-top:none; }
+
+  .review-card{
+    margin: 6px 14px 0; background: var(--bg-raised);
+    border: 1px solid var(--accent-dim); border-radius: var(--radius);
+    padding: 14px 16px;
+  }
+  .review-card .card-label{ color: var(--text-dim); }
+  .review-card textarea{
+    width:100%; background: var(--bg-card); color: var(--text);
+    border:1px solid var(--border); border-radius:10px; padding:10px 12px;
+    font-family:'Barlow', sans-serif; font-size:17px; line-height:1.4;
+    resize:none; min-height:64px;
+  }
+  .review-actions{ display:flex; gap:10px; margin-top:10px; }
+  .btn{
+    font-family:'Barlow', sans-serif; font-weight:600; font-size:15px;
+    border-radius:10px; padding:10px 16px; border:none; cursor:pointer;
+  }
+  .btn-primary{
+    flex:1; background: linear-gradient(135deg, var(--accent-bright), var(--accent-dim));
+    color:#1a1408; box-shadow: inset 0 1px 0 rgba(255,255,255,0.35);
+  }
+  .btn-ghost{ background:none; color: var(--text-dim); border:1px solid var(--border); }
+
+  .turn-meta-row{ padding: 6px 18px 0; }
+
+  /* ---------- mic ---------- */
+  .mic-dock{
+    position:fixed; left:0; right:0; bottom:0; z-index:30;
+    display:flex; flex-direction:column; align-items:center;
+    padding-bottom: calc(18px + env(safe-area-inset-bottom,0px));
+    pointer-events:none;
+  }
+  .mic-status{
+    pointer-events:none; font-size:14px; color: var(--text-dim);
+    margin-bottom:10px; background: rgba(21,22,26,0.85); padding:4px 12px;
+    border-radius:999px; min-height:20px;
+  }
+  .mic-btn{
+    pointer-events:auto;
+    width:76px; height:76px; border-radius:50%; border:none;
+    background: linear-gradient(135deg, var(--accent-bright), var(--accent-dim));
+    box-shadow: 0 6px 18px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.35);
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+  }
+  .mic-btn svg{ width:30px; height:30px; }
+  .mic-btn.listening{
+    background: linear-gradient(135deg, #d9634f, #8a3527);
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes pulse{
+    0%{ box-shadow: 0 6px 18px rgba(0,0,0,0.45), 0 0 0 0 rgba(217,99,79,0.5); }
+    70%{ box-shadow: 0 6px 18px rgba(0,0,0,0.45), 0 0 0 16px rgba(217,99,79,0); }
+    100%{ box-shadow: 0 6px 18px rgba(0,0,0,0.45), 0 0 0 0 rgba(217,99,79,0); }
+  }
+
+  /* ---------- modal ---------- */
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:50;
+    display:flex; align-items:flex-end; justify-content:center;
+  }
+  .modal{
+    width:100%; max-width:480px; background: var(--bg-raised);
+    border-radius: 18px 18px 0 0; padding: 18px 18px calc(22px + env(safe-area-inset-bottom,0px));
+    max-height:82vh; overflow-y:auto;
+    border-top:1px solid var(--border);
+  }
+  .modal-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  .modal-header h2{ margin:0; }
+  .modal-close{
+    background: var(--bg-card); border:1px solid var(--border); color: var(--text-dim);
+    width:34px; height:34px; border-radius:50%; font-size:18px; line-height:1; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .modal h2{ margin:0 0 14px; font-size:22px; }
+  .preset-row{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+  .preset-chip{
+    background: var(--bg-card); border:1px solid var(--accent-dim); color: var(--accent);
+    font-family:'Barlow', sans-serif; font-size:14px; font-weight:500;
+    padding:7px 14px; border-radius:999px; cursor:pointer;
+  }
+  .preset-chip:disabled{ opacity:0.35; border-color:var(--border); color:var(--text-dim); }
+  .field-error{ font-size:12.5px; color: var(--danger); margin-top:4px; display:none; }
+
+  .accordion-item{ border:1px solid var(--border); border-radius:12px; margin-bottom:10px; overflow:hidden; }
+  .accordion-header{
+    width:100%; display:flex; align-items:center; justify-content:space-between;
+    background: var(--bg-card); border:none; color: var(--text);
+    font-family:'Barlow', sans-serif; font-size:16px; font-weight:600;
+    padding:14px 16px; cursor:pointer;
+  }
+  .accordion-count{ color: var(--text-dim); font-weight:500; font-size:13.5px; }
+  .accordion-arrow{ color: var(--accent); transition: transform 0.2s ease; font-size:14px; }
+  .accordion-header.open .accordion-arrow{ transform: rotate(180deg); }
+  .accordion-body{ display:none; padding:14px 16px; background: var(--bg-raised); }
+  .accordion-body.open{ display:block; }
+  .accordion-body .field:last-child{ margin-bottom:0; }
+  .field{ margin-bottom:14px; }
+  .field label{ display:block; font-size:13.5px; color: var(--text-dim); margin-bottom:5px; }
+  .field input, .field select{
+    width:100%; background: var(--bg-card); color: var(--text);
+    border:1px solid var(--border); border-radius:10px; padding:10px 12px;
+    font-family:'Barlow', sans-serif; font-size:16px;
+  }
+  .field-hint{ font-size:12.5px; color:var(--text-dim); margin-top:4px; }
+  .modal-actions{ display:flex; gap:10px; margin-top:6px; }
+  .lang-list-item{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:10px 0; border-bottom:1px solid var(--border);
+  }
+  .lang-list-item .rm{ color: var(--danger); background:none; border:none; font-size:14px; }
+  .modal hr{ border:none; border-top:1px solid var(--border); margin:18px 0; }
+  .slider-row{ display:flex; align-items:center; gap:10px; }
+  .slider-row input[type=range]{ flex:1; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <div class="header-row1">
+      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v21</span></h1>
+      <button class="gear-btn" id="settingsBtn" aria-label="Podešavanja">⚙</button>
+    </div>
+    <div class="lang-row" id="langRow"></div>
+  </header>
+
+  <main id="feed">
+    <div class="empty-state" id="emptyState">
+      <div class="num">—</div>
+      <p>Pritisni mikrofon na dnu ekrana i reci šta treba da se prevede.<br>Aplikacija ne prevodi dok ne završiš — pritisni mikrofon ponovo kad si gotov.</p>
+    </div>
+  </main>
+
+  <div class="mic-dock">
+    <div class="mic-status" id="micStatus"></div>
+    <div class="mic-row">
+      <button class="side-toggle active" id="dirMine">Ja<br>govorim</button>
+      <button class="mic-btn" id="micBtn" aria-label="Mikrofon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#1a1408" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="micIcon">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          <line x1="12" y1="19" x2="12" y2="23"/>
+          <line x1="8" y1="23" x2="16" y2="23"/>
+        </svg>
+      </button>
+      <button class="side-toggle" id="dirGuest">Gost<br>govori</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- Settings modal -->
+<div class="modal-overlay" id="settingsOverlay" style="display:none;">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Podešavanja</h2>
+      <button class="modal-close" id="settingsXBtn" aria-label="Zatvori">✕</button>
+    </div>
+
+    <div class="accordion-item">
+      <button class="accordion-header" data-target="secApi">
+        <span>API ključ i glas</span><span class="accordion-arrow">▾</span>
+      </button>
+      <div class="accordion-body" id="secApi">
+        <div class="field">
+          <label>Gemini API ključ</label>
+          <input type="text" id="apiKeyInput" placeholder="Nalepi ključ ovde">
+          <div class="field-hint">Čuva se samo lokalno na ovom telefonu, ne ide u kod aplikacije.</div>
+        </div>
+        <div class="field">
+          <label>Brzina izgovora</label>
+          <div class="slider-row">
+            <span style="font-size:13px;color:var(--text-dim);">sporo</span>
+            <input type="range" id="rateSlider" min="0.6" max="1.4" step="0.05" value="1">
+            <span style="font-size:13px;color:var(--text-dim);">brzo</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="accordion-item">
+      <button class="accordion-header" data-target="secLang">
+        <span>Jezici <span class="accordion-count" id="langCount"></span></span><span class="accordion-arrow">▾</span>
+      </button>
+      <div class="accordion-body" id="secLang">
+        <div id="langListWrap"></div>
+
+        <div class="field-hint" style="margin:12px 0 8px;">Dodaj novi jezik sa liste:</div>
+        <div class="field">
+          <label>Jezik</label>
+          <select id="langSelect"></select>
+        </div>
+
+        <div id="manualLangFields" style="display:none;">
+          <div class="field">
+            <label>Naziv jezika</label>
+            <input type="text" id="newLangLabel" placeholder="Naziv">
+          </div>
+          <div class="field">
+            <label>Jezički kod (BCP-47, npr. el-GR)</label>
+            <input type="text" id="newLangCode" placeholder="el-GR">
+            <div class="field-hint">Primeri: el-GR grčki, es-ES španski, it-IT italijanski, de-DE nemački.</div>
+          </div>
+        </div>
+        <div class="field-error" id="addLangError">Upiši i naziv i kod jezika pre dodavanja.</div>
+        <button class="btn btn-ghost" style="width:100%;" id="addLangBtn">+ Dodaj jezik</button>
+      </div>
+    </div>
+
+    <div class="accordion-item">
+      <button class="accordion-header" data-target="secHistory">
+        <span>Istorija razgovora <span class="accordion-count" id="historyCount"></span></span><span class="accordion-arrow">▾</span>
+      </button>
+      <div class="accordion-body" id="secHistory">
+        <button class="btn btn-ghost" style="width:100%; color:var(--danger); border-color:var(--danger);" id="clearHistoryBtn">Obriši istoriju razgovora</button>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-primary" id="closeSettingsBtn" style="width:100%;">Sačuvaj i zatvori</button>
+    </div>
+  </div>
+</div>
+
+<!-- Custom confirm dialog -->
+<div class="modal-overlay" id="confirmOverlay" style="display:none;">
+  <div class="modal">
+    <h2 id="confirmTitle">Da li si siguran?</h2>
+    <p id="confirmBody" style="color:var(--text-dim); font-size:15px;"></p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" style="flex:1;" id="confirmCancel">Otkaži</button>
+      <button class="btn btn-primary" style="flex:1; background:linear-gradient(135deg,#d9634f,#8a3527); color:#fff;" id="confirmOk">Obriši</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============ state ============ */
+const DEFAULT_LANGS = [
+  { label:'Ruski', code:'ru-RU' },
+  { label:'Turski', code:'tr-TR' },
+  { label:'Engleski', code:'en-US' },
+];
+const ALL_LANGS = [
+  { label:'Grčki', code:'el-GR' },
+  { label:'Španski', code:'es-ES' },
+  { label:'Italijanski', code:'it-IT' },
+  { label:'Nemački', code:'de-DE' },
+  { label:'Francuski', code:'fr-FR' },
+  { label:'Poljski', code:'pl-PL' },
+  { label:'Rumunski', code:'ro-RO' },
+  { label:'Bugarski', code:'bg-BG' },
+  { label:'Mađarski', code:'hu-HU' },
+  { label:'Kineski', code:'zh-CN' },
+  { label:'Arapski', code:'ar-SA' },
+  { label:'Albanski', code:'sq-AL' },
+  { label:'Švedski', code:'sv-SE' },
+  { label:'Norveški', code:'nb-NO' },
+  { label:'Danski', code:'da-DK' },
+  { label:'Finski', code:'fi-FI' },
+  { label:'Holandski', code:'nl-NL' },
+  { label:'Portugalski', code:'pt-PT' },
+  { label:'Portugalski (Brazil)', code:'pt-BR' },
+  { label:'Ukrajinski', code:'uk-UA' },
+  { label:'Češki', code:'cs-CZ' },
+  { label:'Slovački', code:'sk-SK' },
+  { label:'Slovenački', code:'sl-SI' },
+  { label:'Hrvatski', code:'hr-HR' },
+  { label:'Bosanski', code:'bs-BA' },
+  { label:'Makedonski', code:'mk-MK' },
+  { label:'Japanski', code:'ja-JP' },
+  { label:'Korejski', code:'ko-KR' },
+  { label:'Hindi', code:'hi-IN' },
+  { label:'Vijetnamski', code:'vi-VN' },
+  { label:'Tajlandski', code:'th-TH' },
+  { label:'Persijski (farsi)', code:'fa-IR' },
+  { label:'Hebrejski', code:'he-IL' },
+  { label:'Estonski', code:'et-EE' },
+  { label:'Letonski', code:'lv-LV' },
+  { label:'Litvanski', code:'lt-LT' },
+  { label:'Islandski', code:'is-IS' },
+  { label:'Indonežanski', code:'id-ID' },
+  { label:'Malajski', code:'ms-MY' },
+  { label:'Svahili', code:'sw-KE' },
+  { label:'Gruzijski', code:'ka-GE' },
+  { label:'Jermenski', code:'hy-AM' },
+  { label:'Azerbejdžanski', code:'az-AZ' },
+];
+const MANUAL_LANG_VALUE = '__manual__';
+const SR_CODE = 'sr-RS';
+
+let langs = JSON.parse(localStorage.getItem('vp_languages') || 'null') || DEFAULT_LANGS;
+let selectedLangCode = localStorage.getItem('vp_selectedLangCode') || (DEFAULT_LANGS[0] && DEFAULT_LANGS[0].code);
+let direction = localStorage.getItem('vp_direction') || 'mine'; // 'mine' | 'guest'
+let chatHistory = JSON.parse(localStorage.getItem('vp_history') || '[]');
+let apiKey = localStorage.getItem('vp_apikey') || '';
+let speechRate = parseFloat(localStorage.getItem('vp_rate') || '1');
+
+let recognition = null;
+let listening = false;
+let accumulatedTranscript = '';
+
+/* ============ DOM refs ============ */
+const feed = document.getElementById('feed');
+const emptyState = document.getElementById('emptyState');
+const langRow = document.getElementById('langRow');
+const dirMine = document.getElementById('dirMine');
+const dirGuest = document.getElementById('dirGuest');
+const micBtn = document.getElementById('micBtn');
+const micStatus = document.getElementById('micStatus');
+
+const settingsOverlay = document.getElementById('settingsOverlay');
+const settingsBtn = document.getElementById('settingsBtn');
+const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+const settingsXBtn = document.getElementById('settingsXBtn');
+const apiKeyInput = document.getElementById('apiKeyInput');
+const rateSlider = document.getElementById('rateSlider');
+const langListWrap = document.getElementById('langListWrap');
+const langSelect = document.getElementById('langSelect');
+const manualLangFields = document.getElementById('manualLangFields');
+const newLangLabel = document.getElementById('newLangLabel');
+const newLangCode = document.getElementById('newLangCode');
+const addLangBtn = document.getElementById('addLangBtn');
+const addLangError = document.getElementById('addLangError');
+const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+
+const confirmOverlay = document.getElementById('confirmOverlay');
+const confirmTitle = document.getElementById('confirmTitle');
+const confirmBody = document.getElementById('confirmBody');
+const confirmCancel = document.getElementById('confirmCancel');
+const confirmOk = document.getElementById('confirmOk');
+
+/* ============ persistence ============ */
+function saveLangs(){ localStorage.setItem('vp_languages', JSON.stringify(langs)); }
+function saveHistory(){ localStorage.setItem('vp_history', JSON.stringify(chatHistory)); }
+function saveSelected(){ localStorage.setItem('vp_selectedLangCode', selectedLangCode); }
+function getSelectedLang(){
+  return langs.find(l=>l.code===selectedLangCode) || langs[0];
+}
+function saveDirection(){ localStorage.setItem('vp_direction', direction); }
+
+/* ============ custom confirm ============ */
+function customConfirm(title, body){
+  return new Promise(resolve=>{
+    confirmTitle.textContent = title;
+    confirmBody.textContent = body;
+    history.pushState({ modal:'confirm' }, '');
+    confirmOverlay.style.display = 'flex';
+    let settled = false;
+    function cleanup(v, goBack){
+      if(settled) return;
+      settled = true;
+      confirmOverlay.style.display = 'none';
+      confirmCancel.removeEventListener('click', onCancel);
+      confirmOk.removeEventListener('click', onOk);
+      window.removeEventListener('popstate', onPop);
+      if(goBack && history.state && history.state.modal==='confirm'){ history.back(); }
+      resolve(v);
+    }
+    function onCancel(){ cleanup(false, true); }
+    function onOk(){ cleanup(true, true); }
+    function onPop(){ cleanup(false, false); }
+    confirmCancel.addEventListener('click', onCancel);
+    confirmOk.addEventListener('click', onOk);
+    window.addEventListener('popstate', onPop);
+  });
+}
+
+/* ============ language row ============ */
+function renderLangRow(){
+  langRow.innerHTML = '';
+  langs.forEach((l, i)=>{
+    const b = document.createElement('button');
+    b.className = 'lang-btn' + (l.code===selectedLangCode ? ' active' : '');
+    b.textContent = l.label;
+    b.onclick = ()=>{ selectedLangCode = l.code; saveSelected(); renderLangRow(); };
+    langRow.appendChild(b);
+  });
+  const addBtn = document.createElement('button');
+  addBtn.className = 'lang-btn add';
+  addBtn.textContent = '+ Jezik';
+  addBtn.onclick = openSettings;
+  langRow.appendChild(addBtn);
+}
+
+function renderDirection(){
+  dirMine.classList.toggle('active', direction==='mine');
+  dirGuest.classList.toggle('active', direction==='guest');
+}
+dirMine.onclick = ()=>{ direction='mine'; saveDirection(); renderDirection(); };
+dirGuest.onclick = ()=>{ direction='guest'; saveDirection(); renderDirection(); };
+
+/* ============ back button / gesture closes open modal ============ */
+function openModal(overlayEl, name){
+  history.pushState({ modal:name }, '');
+  overlayEl.style.display = 'flex';
+}
+function closeModal(overlayEl){
+  overlayEl.style.display = 'none';
+  if(history.state && history.state.modal){ history.back(); }
+}
+window.addEventListener('popstate', ()=>{
+  if(settingsOverlay.style.display === 'flex'){ persistSettingsFields(); }
+  settingsOverlay.style.display = 'none';
+  confirmOverlay.style.display = 'none';
+});
+
+/* ============ accordion ============ */
+function closeAllAccordionSections(){
+  document.querySelectorAll('.accordion-body').forEach(b=>b.classList.remove('open'));
+  document.querySelectorAll('.accordion-header').forEach(h=>h.classList.remove('open'));
+}
+document.querySelectorAll('.accordion-header').forEach(h=>{
+  h.onclick = ()=>{
+    const body = document.getElementById(h.dataset.target);
+    const wasOpen = body.classList.contains('open');
+    closeAllAccordionSections();
+    if(!wasOpen){ body.classList.add('open'); h.classList.add('open'); }
+  };
+});
+function updateAccordionCounts(){
+  document.getElementById('langCount').textContent = `(${langs.length})`;
+  document.getElementById('historyCount').textContent = `(${chatHistory.length})`;
+}
+
+/* ============ settings modal ============ */
+function openSettings(){
+  apiKeyInput.value = apiKey;
+  rateSlider.value = speechRate;
+  renderLangList();
+  renderLangSelect();
+  addLangError.style.display = 'none';
+  closeAllAccordionSections();
+  updateAccordionCounts();
+  openModal(settingsOverlay, 'settings');
+}
+function persistSettingsFields(){
+  apiKey = apiKeyInput.value.trim();
+  localStorage.setItem('vp_apikey', apiKey);
+  speechRate = parseFloat(rateSlider.value);
+  localStorage.setItem('vp_rate', String(speechRate));
+  renderLangRow();
+}
+function closeSettings(){
+  persistSettingsFields();
+  closeModal(settingsOverlay);
+}
+settingsBtn.onclick = openSettings;
+closeSettingsBtn.onclick = closeSettings;
+settingsXBtn.onclick = closeSettings;
+
+function renderLangList(){
+  langListWrap.innerHTML = '';
+  langs.forEach((l, i)=>{
+    const row = document.createElement('div');
+    row.className = 'lang-list-item';
+    row.innerHTML = `<span>${escapeHtml(l.label)} <span style="color:var(--text-dim); font-size:13px;">(${escapeHtml(l.code)})</span></span>`;
+    const rm = document.createElement('button');
+    rm.className = 'rm'; rm.textContent = 'Ukloni';
+    rm.onclick = async ()=>{
+      if(langs.length<=1){ return; }
+      const ok = await customConfirm('Ukloni jezik?', `Ukloniti "${l.label}" sa liste?`);
+      if(!ok) return;
+      langs.splice(i,1);
+      if(selectedLangCode===l.code) selectedLangCode = langs[0] && langs[0].code;
+      saveLangs(); saveSelected();
+      renderLangList(); renderLangRow(); renderLangSelect();
+      updateAccordionCounts();
+    };
+    row.appendChild(rm);
+    langListWrap.appendChild(row);
+  });
+}
+function renderLangSelect(){
+  const addedCodes = langs.map(l=>l.code);
+  const available = ALL_LANGS.filter(l=>!addedCodes.includes(l.code));
+  langSelect.innerHTML = '';
+  available.forEach(l=>{
+    const opt = document.createElement('option');
+    opt.value = l.code;
+    opt.textContent = l.label;
+    langSelect.appendChild(opt);
+  });
+  const manualOpt = document.createElement('option');
+  manualOpt.value = MANUAL_LANG_VALUE;
+  manualOpt.textContent = 'Drugi jezik (unesi ručno)';
+  langSelect.appendChild(manualOpt);
+  manualLangFields.style.display = 'none';
+  addLangError.style.display = 'none';
+  addLangError.textContent = 'Upiši i naziv i kod jezika pre dodavanja.';
+}
+langSelect.onchange = ()=>{
+  manualLangFields.style.display = (langSelect.value === MANUAL_LANG_VALUE) ? 'block' : 'none';
+  addLangError.style.display = 'none';
+};
+
+addLangBtn.onclick = ()=>{
+  if(langSelect.value === MANUAL_LANG_VALUE){
+    const label = newLangLabel.value.trim();
+    const code = newLangCode.value.trim();
+    if(!label || !code){
+      addLangError.style.display = 'block';
+      addLangError.textContent = 'Upiši i naziv i kod jezika pre dodavanja.';
+      return;
+    }
+    if(langs.some(l=>l.code.toLowerCase()===code.toLowerCase())){
+      addLangError.style.display = 'block';
+      addLangError.textContent = 'Taj jezički kod je već na listi.';
+      return;
+    }
+    langs.push({label, code});
+    newLangLabel.value=''; newLangCode.value='';
+  } else {
+    const chosen = ALL_LANGS.find(l=>l.code===langSelect.value);
+    if(!chosen) return;
+    langs.push({label:chosen.label, code:chosen.code});
+  }
+  addLangError.style.display = 'none';
+  saveLangs();
+  renderLangList(); renderLangRow(); renderLangSelect();
+  updateAccordionCounts();
+};
+clearHistoryBtn.onclick = async ()=>{
+  const ok = await customConfirm('Obriši istoriju?', 'Ovo trajno briše sve zapisane razgovore sa ovog telefona.');
+  if(!ok) return;
+  chatHistory = [];
+  saveHistory();
+  renderFeed();
+  updateAccordionCounts();
+};
+
+/* ============ feed rendering ============ */
+function renderFeed(){
+  feed.innerHTML = '';
+  if(chatHistory.length===0){
+    feed.appendChild(emptyState);
+    return;
+  }
+  chatHistory.forEach((turn, idx)=>{
+    if(idx>0){
+      const div = document.createElement('div');
+      div.className = 'turn-divider';
+      div.style.cssText = 'height:auto; background:#e0b06a; color:#000; font-family:"Barlow Condensed",sans-serif; font-weight:700; font-size:11px; letter-spacing:0.5px; line-height:1.1; text-align:center; padding:3px 0; margin:16px 14px; border-radius:4px;';
+      div.textContent = 'NOVA RAZMENA';
+      feed.appendChild(div);
+    }
+    feed.appendChild(buildTurnPair(turn));
+  });
+  feed.scrollTop = feed.scrollHeight;
+}
+
+function buildTurnPair(turn){
+  const wrap = document.createElement('div');
+  wrap.className = 'turn-pair';
+
+  const originalLabel = turn.direction==='mine' ? 'TI' : `GOST · ${escapeHtml(turn.sourceLangLabel)}`;
+  const translationLabel = turn.direction==='mine' ? escapeHtml(turn.targetLangLabel) : 'TI (srpski)';
+
+  const c1 = document.createElement('div');
+  c1.className = 'card original';
+  c1.innerHTML = `<div class="card-label">${originalLabel}</div><div class="card-text">${escapeHtml(turn.cleanedText)}</div>`;
+
+  const c2 = document.createElement('div');
+  c2.className = 'card translation';
+  c2.innerHTML = `<div class="card-label">${translationLabel}</div><div class="card-text">${escapeHtml(turn.translatedText)}</div>`;
+
+  wrap.appendChild(c1);
+  wrap.appendChild(c2);
+  return wrap;
+}
+
+function escapeHtml(s){
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+/* ============ speech recognition ============ */
+function getSTTLang(){
+  // language being SPOKEN right now
+  if(direction==='mine') return SR_CODE;
+  return getSelectedLang().code;
+}
+function getTargetLang(){
+  // language to TRANSLATE INTO
+  if(direction==='mine') return getSelectedLang();
+  return { label:'Srpski', code: SR_CODE };
+}
+
+function setupRecognition(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR){
+    micStatus.textContent = 'Prepoznavanje govora nije podržano u ovom pretraživaču.';
+    return null;
+  }
+  const r = new SR();
+  r.continuous = true;
+  r.interimResults = false;
+  r.maxAlternatives = 1;
+  r.onresult = (e)=>{
+    for(let i=e.resultIndex; i<e.results.length; i++){
+      if(e.results[i].isFinal){
+        accumulatedTranscript += (accumulatedTranscript ? ' ' : '') + e.results[i][0].transcript.trim();
+      }
+    }
+  };
+  r.onerror = (e)=>{
+    console.error('STT error', e.error);
+    if(e.error === 'no-speech'){ return; } // transient, keep listening
+    const fatal = ['not-allowed','service-not-allowed','audio-capture','network'];
+    if(fatal.includes(e.error)){
+      listening = false;
+      micBtn.classList.remove('listening');
+      dirMine.disabled = false; dirGuest.disabled = false;
+      langRow.querySelectorAll('button').forEach(b=>b.disabled = false);
+      const messages = {
+        'not-allowed': 'Dozvola za mikrofon je odbijena.',
+        'service-not-allowed': 'Dozvola za mikrofon je odbijena.',
+        'audio-capture': 'Mikrofon nije dostupan na uređaju.',
+        'network': 'Nema internet konekcije za prepoznavanje govora.'
+      };
+      micStatus.textContent = messages[e.error] || ('Greška mikrofona: ' + e.error);
+      return;
+    }
+    micStatus.textContent = 'Greška mikrofona: ' + e.error;
+  };
+  r.onend = ()=>{
+    if(listening){
+      // Chrome sometimes ends recognition on its own after a long silence;
+      // restart automatically as long as the user hasn't pressed stop.
+      try{ r.start(); }catch(err){}
+    }
+  };
+  return r;
+}
+
+function startListening(){
+  recognition = setupRecognition();
+  if(!recognition) return;
+  accumulatedTranscript = '';
+  recognition.lang = getSTTLang();
+  listening = true;
+  micBtn.classList.add('listening');
+  micStatus.textContent = 'Slušam... pritisni ponovo kad završiš';
+  dirMine.disabled = true; dirGuest.disabled = true;
+  langRow.querySelectorAll('button').forEach(b=>b.disabled = true);
+  try{ recognition.start(); }catch(err){ console.error(err); }
+}
+
+function stopListening(){
+  listening = false;
+  micBtn.classList.remove('listening');
+  micStatus.textContent = '';
+  dirMine.disabled = false; dirGuest.disabled = false;
+  langRow.querySelectorAll('button').forEach(b=>b.disabled = false);
+  if(recognition){
+    try{ recognition.stop(); }catch(err){}
+  }
+  setTimeout(()=>{
+    if(accumulatedTranscript.trim()){
+      showReviewCard(accumulatedTranscript.trim());
+    } else {
+      micStatus.textContent = 'Nije prepoznat govor, probaj ponovo.';
+      setTimeout(()=>{ if(!listening) micStatus.textContent=''; }, 2500);
+    }
+  }, 300);
+}
+
+micBtn.onclick = ()=>{
+  if(listening){ stopListening(); }
+  else { startListening(); }
+};
+
+/* ============ review card (edit before translate) ============ */
+function showReviewCard(rawText){
+  const existing = document.getElementById('activeReview');
+  if(existing) existing.remove();
+
+  const card = document.createElement('div');
+  card.className = 'review-card';
+  card.id = 'activeReview';
+  card.innerHTML = `
+    <div class="card-label">Prepoznato — proveri i ispravi ako treba</div>
+    <textarea id="reviewText">${escapeHtml(rawText)}</textarea>
+    <div class="review-actions">
+      <button class="btn btn-ghost" id="reviewCancel">Otkaži</button>
+      <button class="btn btn-primary" id="reviewGo">Prevedi</button>
+    </div>
+  `;
+  if(emptyState.parentNode === feed) emptyState.remove();
+  feed.appendChild(card);
+  feed.scrollTop = feed.scrollHeight;
+
+  document.getElementById('reviewCancel').onclick = ()=>{
+    card.remove();
+    if(chatHistory.length===0) feed.appendChild(emptyState);
+  };
+  document.getElementById('reviewGo').onclick = ()=>{
+    const text = document.getElementById('reviewText').value.trim();
+    if(!text) return;
+    processTranslation(text, card);
+  };
+}
+
+/* ============ Gemini call ============ */
+async function processTranslation(rawText, reviewCardEl){
+  if(!apiKey){
+    micStatus.textContent = 'Nedostaje Gemini API ključ — dodaj ga u podešavanjima (⚙).';
+    openSettings();
+    return;
+  }
+  const goBtn = reviewCardEl.querySelector('#reviewGo');
+  goBtn.textContent = 'Prevodim...';
+  goBtn.disabled = true;
+
+  const target = getTargetLang();
+  const sourceLangLabel = direction==='mine' ? 'Srpski' : (getSelectedLang().label);
+
+  const prompt = `Dobićeš sirovi tekst dobijen prepoznavanjem govora, izgovoren na jeziku: ${sourceLangLabel}.
+Zadatak, tačno tim redosledom:
+1) Očisti tekst: ukloni poštapalice, nedovršene rečenice i ponavljanja, izvuci pravu nameru govornika. Ne dodaji ništa što nije rečeno, ne menjaj smisao.
+2) Prevedi očišćeni tekst na jezik: ${target.label} (${target.code}).
+Odgovori ISKLJUČIVO JSON objektom, bez markdown ograda, tačno u ovom obliku:
+{"cleaned": "očišćen tekst na izvornom jeziku", "translation": "prevod na ciljni jezik"}
+
+Sirovi tekst:
+"""${rawText}"""`;
+
+  try{
+    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { responseMimeType: 'application/json', temperature: 0.3 }
+      })
+    });
+    if(!resp.ok){
+      const errText = await resp.text();
+      throw new Error(`API greška ${resp.status}: ${errText.slice(0,200)}`);
+    }
+    const data = await resp.json();
+    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if(!raw) throw new Error('Prazan odgovor od modela.');
+    let parsed;
+    try{ parsed = JSON.parse(raw); }
+    catch(e){ throw new Error('Model nije vratio ispravan JSON.'); }
+
+    const turn = {
+      direction,
+      sourceLangLabel,
+      targetLangLabel: target.label,
+      cleanedText: parsed.cleaned || rawText,
+      translatedText: parsed.translation || '',
+      ts: Date.now()
+    };
+    chatHistory.push(turn);
+    saveHistory();
+    reviewCardEl.remove();
+    renderFeed();
+    speak(turn.translatedText, target.code);
+
+  }catch(err){
+    console.error(err);
+    goBtn.textContent = 'Prevedi';
+    goBtn.disabled = false;
+    micStatus.textContent = 'Greška: ' + err.message;
+    setTimeout(()=>{ micStatus.textContent=''; }, 4000);
+  }
+}
+
+/* ============ text to speech ============ */
+function speak(text, langCode){
+  if(!text || !window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = langCode;
+  u.rate = speechRate;
+  const voices = window.speechSynthesis.getVoices();
+  const match = voices.find(v=>v.lang === langCode) || voices.find(v=>v.lang.startsWith(langCode.split('-')[0]));
+  if(match) u.voice = match;
+  window.speechSynthesis.speak(u);
+}
+// warm up voice list (Chrome loads it async)
+if(window.speechSynthesis){ window.speechSynthesis.getVoices(); }
+
+/* ============ init ============ */
+renderLangRow();
+renderDirection();
+renderFeed();
+
+/* ============ service worker (only activates once served over HTTPS/GitHub Pages) ============ */
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{ /* not available on local file testing, that's expected */ });
+  });
+}
+</script>
+</body>
+</html>

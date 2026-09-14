@@ -130,17 +130,11 @@
   .card.original{ border-radius: var(--radius) var(--radius) 0 0; }
   .card.translation{ border-radius: 0 0 var(--radius) var(--radius); border-top:none; }
 
-  .review-card{
-    margin: 6px 14px 0; background: var(--bg-raised);
-    border: 1px solid var(--accent-dim); border-radius: var(--radius);
-    padding: 14px 16px;
-  }
-  .review-card .card-label{ color: var(--text-dim); }
-  .review-card textarea{
+  .correction-textarea{
     width:100%; background: var(--bg-card); color: var(--text);
     border:1px solid var(--border); border-radius:10px; padding:10px 12px;
-    font-family:'Barlow', sans-serif; font-size:17px; line-height:1.4;
-    resize:none; min-height:64px;
+    font-family:'Barlow', sans-serif; font-size:16px; line-height:1.4;
+    resize:none; min-height:56px;
   }
   .review-actions{ display:flex; gap:10px; margin-top:10px; }
   .btn{
@@ -259,7 +253,7 @@
 
   <header>
     <div class="header-row1">
-      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v23</span></h1>
+      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v24</span></h1>
       <button class="gear-btn" id="settingsBtn" aria-label="Podešavanja">⚙</button>
     </div>
     <div class="lang-row" id="langRow"></div>
@@ -699,12 +693,12 @@ function renderFeed(){
       div.textContent = 'NOVA RAZMENA';
       feed.appendChild(div);
     }
-    feed.appendChild(buildTurnPair(turn));
+    feed.appendChild(buildTurnPair(turn, idx));
   });
   feed.scrollTop = feed.scrollHeight;
 }
 
-function buildTurnPair(turn){
+function buildTurnPair(turn, idx){
   const wrap = document.createElement('div');
   wrap.className = 'turn-pair';
 
@@ -713,7 +707,8 @@ function buildTurnPair(turn){
 
   const c1 = document.createElement('div');
   c1.className = 'card original';
-  c1.innerHTML = `<div class="card-label">${originalLabel}</div><div class="card-text">${escapeHtml(turn.cleanedText)}</div>`;
+  c1.innerHTML = `<div class="card-label-row"><div class="card-label">${originalLabel}</div><button class="replay-btn" aria-label="Ispravi">✎</button></div><div class="card-text">${escapeHtml(turn.cleanedText)}</div>`;
+  c1.querySelector('.replay-btn').onclick = ()=> startCorrection(c1, idx);
 
   const c2 = document.createElement('div');
   c2.className = 'card translation';
@@ -723,6 +718,42 @@ function buildTurnPair(turn){
   wrap.appendChild(c1);
   wrap.appendChild(c2);
   return wrap;
+}
+
+function startCorrection(cardEl, idx){
+  const turn = chatHistory[idx];
+  if(!turn) return;
+  cardEl.innerHTML = `
+    <div class="card-label">Ispravi tekst</div>
+    <textarea id="correctionText" class="correction-textarea">${escapeHtml(turn.cleanedText)}</textarea>
+    <div class="review-actions">
+      <button class="btn btn-ghost" id="correctionCancel">Otkaži</button>
+      <button class="btn btn-primary" id="correctionSave">Sačuvaj i prevedi ponovo</button>
+    </div>
+  `;
+  cardEl.querySelector('#correctionCancel').onclick = ()=> renderFeed();
+  cardEl.querySelector('#correctionSave').onclick = async ()=>{
+    const newText = cardEl.querySelector('#correctionText').value.trim();
+    if(!newText) return;
+    const saveBtn = cardEl.querySelector('#correctionSave');
+    saveBtn.textContent = 'Prevodim...';
+    saveBtn.disabled = true;
+    try{
+      const target = { label: turn.targetLangLabel, code: turn.targetLangCode };
+      const result = await cleanAndTranslateText(newText, turn.sourceLangLabel, target);
+      chatHistory[idx].cleanedText = result.cleaned;
+      chatHistory[idx].translatedText = result.translation;
+      saveHistory();
+      renderFeed();
+      speak(result.translation, turn.targetLangCode);
+    }catch(err){
+      console.error(err);
+      saveBtn.textContent = 'Sačuvaj i prevedi ponovo';
+      saveBtn.disabled = false;
+      micStatus.textContent = 'Greška: ' + err.message;
+      setTimeout(()=>{ micStatus.textContent=''; }, 4000);
+    }
+  };
 }
 
 function escapeHtml(s){
@@ -849,12 +880,24 @@ async function stopListening(){
     const wavBlob = encodeWAV(pcmChunks, sampleRate);
     pcmChunks = [];
     const base64 = await blobToBase64(wavBlob);
-    const transcript = await transcribeAudio(base64);
+    const result = await transcribeAndTranslate(base64);
     recState = 'idle';
     micBtn.classList.remove('processing');
     micStatus.textContent = '';
-    if(transcript && transcript.trim()){
-      showReviewCard(transcript.trim());
+    if(result.cleaned && result.cleaned.trim()){
+      const turn = {
+        direction,
+        sourceLangLabel: result.sourceLangLabel,
+        targetLangLabel: result.target.label,
+        targetLangCode: result.target.code,
+        cleanedText: result.cleaned,
+        translatedText: result.translation,
+        ts: Date.now()
+      };
+      chatHistory.push(turn);
+      saveHistory();
+      renderFeed();
+      speak(turn.translatedText, turn.targetLangCode);
     } else {
       micStatus.textContent = 'Nije prepoznat govor, probaj ponovo.';
       setTimeout(()=>{ if(recState==='idle') micStatus.textContent=''; }, 2500);
@@ -868,14 +911,22 @@ async function stopListening(){
   }
 }
 
-async function transcribeAudio(base64Wav){
+async function transcribeAndTranslate(base64Wav){
   if(!apiKey){
     micStatus.textContent = 'Nedostaje Gemini API ključ — dodaj ga u podešavanjima (⚙).';
     openSettings();
     throw new Error('Nema API ključa.');
   }
   const spokenLangLabel = getSpokenLangLabel();
-  const prompt = `Transkribuj sledeći audio zapis govora. Govornik govori na jeziku: ${spokenLangLabel}. Vrati ISKLJUČIVO sirovi transkript izgovorenog teksta na tom jeziku — bez navodnika, bez markdown formatiranja, bez ikakvog dodatnog komentara. Ako ne čuješ nikakav razgovetan govor, vrati prazan odgovor.`;
+  const target = getTargetLang();
+  const prompt = `Dobićeš audio zapis govora na jeziku: ${spokenLangLabel}.
+Zadatak, tačno tim redosledom:
+1) Transkribuj šta je izgovoreno.
+2) Očisti transkript: ukloni poštapalice, nedovršene rečenice i ponavljanja, izvuci pravu nameru govornika. Ne dodaji ništa što nije rečeno, ne menjaj smisao.
+3) Prevedi očišćeni tekst na jezik: ${target.label} (${target.code}).
+Ako ne čuješ nikakav razgovetan govor, vrati prazne stringove za sva tri polja.
+Odgovori ISKLJUČIVO JSON objektom, bez markdown ograda, tačno u ovom obliku:
+{"cleaned": "očišćen tekst na izvornom jeziku", "translation": "prevod na ciljni jezik"}`;
 
   const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`, {
     method:'POST',
@@ -885,7 +936,7 @@ async function transcribeAudio(base64Wav){
         { text: prompt },
         { inline_data: { mime_type: 'audio/wav', data: base64Wav } }
       ]}],
-      generationConfig: { temperature: 0.2 }
+      generationConfig: { responseMimeType: 'application/json', temperature: 0.3 }
     })
   });
   if(!resp.ok){
@@ -894,7 +945,11 @@ async function transcribeAudio(base64Wav){
   }
   const data = await resp.json();
   const raw = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  return (raw || '').trim();
+  if(!raw) throw new Error('Prazan odgovor od modela.');
+  let parsed;
+  try{ parsed = JSON.parse(raw); }
+  catch(e){ throw new Error('Model nije vratio ispravan JSON.'); }
+  return { sourceLangLabel: spokenLangLabel, target, cleaned: parsed.cleaned || '', translation: parsed.translation || '' };
 }
 
 micBtn.onclick = ()=>{
@@ -903,103 +958,37 @@ micBtn.onclick = ()=>{
   // ignore taps while 'processing'
 };
 
-/* ============ review card (edit before translate) ============ */
-function showReviewCard(rawText){
-  const existing = document.getElementById('activeReview');
-  if(existing) existing.remove();
-
-  const card = document.createElement('div');
-  card.className = 'review-card';
-  card.id = 'activeReview';
-  card.innerHTML = `
-    <div class="card-label">Prepoznato — proveri i ispravi ako treba</div>
-    <textarea id="reviewText">${escapeHtml(rawText)}</textarea>
-    <div class="review-actions">
-      <button class="btn btn-ghost" id="reviewCancel">Otkaži</button>
-      <button class="btn btn-primary" id="reviewGo">Prevedi</button>
-    </div>
-  `;
-  if(emptyState.parentNode === feed) emptyState.remove();
-  feed.appendChild(card);
-  feed.scrollTop = feed.scrollHeight;
-
-  document.getElementById('reviewCancel').onclick = ()=>{
-    card.remove();
-    if(chatHistory.length===0) feed.appendChild(emptyState);
-  };
-  document.getElementById('reviewGo').onclick = ()=>{
-    const text = document.getElementById('reviewText').value.trim();
-    if(!text) return;
-    processTranslation(text, card);
-  };
-}
-
-/* ============ Gemini call ============ */
-async function processTranslation(rawText, reviewCardEl){
-  if(!apiKey){
-    micStatus.textContent = 'Nedostaje Gemini API ključ — dodaj ga u podešavanjima (⚙).';
-    openSettings();
-    return;
-  }
-  const goBtn = reviewCardEl.querySelector('#reviewGo');
-  goBtn.textContent = 'Prevodim...';
-  goBtn.disabled = true;
-
-  const target = getTargetLang();
-  const sourceLangLabel = direction==='mine' ? 'Srpski' : (getSelectedLang().label);
-
-  const prompt = `Dobićeš sirovi tekst dobijen prepoznavanjem govora, izgovoren na jeziku: ${sourceLangLabel}.
+/* ============ text-only re-translate, used only when correcting a turn afterward ============ */
+async function cleanAndTranslateText(rawText, sourceLangLabel, target){
+  const prompt = `Dobićeš tekst, izgovoren na jeziku: ${sourceLangLabel}.
 Zadatak, tačno tim redosledom:
 1) Očisti tekst: ukloni poštapalice, nedovršene rečenice i ponavljanja, izvuci pravu nameru govornika. Ne dodaji ništa što nije rečeno, ne menjaj smisao.
 2) Prevedi očišćeni tekst na jezik: ${target.label} (${target.code}).
 Odgovori ISKLJUČIVO JSON objektom, bez markdown ograda, tačno u ovom obliku:
 {"cleaned": "očišćen tekst na izvornom jeziku", "translation": "prevod na ciljni jezik"}
 
-Sirovi tekst:
+Tekst:
 """${rawText}"""`;
 
-  try{
-    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`, {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { responseMimeType: 'application/json', temperature: 0.3 }
-      })
-    });
-    if(!resp.ok){
-      const errText = await resp.text();
-      throw new Error(`API greška ${resp.status}: ${errText.slice(0,200)}`);
-    }
-    const data = await resp.json();
-    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if(!raw) throw new Error('Prazan odgovor od modela.');
-    let parsed;
-    try{ parsed = JSON.parse(raw); }
-    catch(e){ throw new Error('Model nije vratio ispravan JSON.'); }
-
-    const turn = {
-      direction,
-      sourceLangLabel,
-      targetLangLabel: target.label,
-      targetLangCode: target.code,
-      cleanedText: parsed.cleaned || rawText,
-      translatedText: parsed.translation || '',
-      ts: Date.now()
-    };
-    chatHistory.push(turn);
-    saveHistory();
-    reviewCardEl.remove();
-    renderFeed();
-    speak(turn.translatedText, target.code);
-
-  }catch(err){
-    console.error(err);
-    goBtn.textContent = 'Prevedi';
-    goBtn.disabled = false;
-    micStatus.textContent = 'Greška: ' + err.message;
-    setTimeout(()=>{ micStatus.textContent=''; }, 4000);
+  const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`, {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { responseMimeType: 'application/json', temperature: 0.3 }
+    })
+  });
+  if(!resp.ok){
+    const errText = await resp.text();
+    throw new Error(`API greška ${resp.status}: ${errText.slice(0,200)}`);
   }
+  const data = await resp.json();
+  const raw = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if(!raw) throw new Error('Prazan odgovor od modela.');
+  let parsed;
+  try{ parsed = JSON.parse(raw); }
+  catch(e){ throw new Error('Model nije vratio ispravan JSON.'); }
+  return { cleaned: parsed.cleaned || rawText, translation: parsed.translation || '' };
 }
 
 /* ============ text to speech ============ */

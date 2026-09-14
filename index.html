@@ -274,7 +274,7 @@
 
   <header>
     <div class="header-row1">
-      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v42</span></h1>
+      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v43</span></h1>
       <div class="header-actions">
         <button class="gear-btn" id="openSavedBtn" aria-label="Sačuvano">⭐</button>
         <button class="gear-btn" id="quickClearBtn" aria-label="Obriši razgovor">🗑</button>
@@ -332,7 +332,7 @@
           <div class="field-hint">Čuva se samo lokalno na ovom telefonu, ne ide u kod aplikacije.</div>
         </div>
         <div class="field">
-          <label>Brzina izgovora</label>
+          <label>Brzina izgovora <span id="rateValueLabel" style="color:var(--accent); font-weight:600;">50</span></label>
           <div class="slider-row">
             <span style="font-size:13px;color:var(--text-dim);">sporo</span>
             <input type="range" id="rateSlider" min="0.6" max="1.4" step="0.05" value="1">
@@ -536,6 +536,7 @@ const settingsXBtn = document.getElementById('settingsXBtn');
 const apiKeyInput = document.getElementById('apiKeyInput');
 const toggleApiKeyBtn = document.getElementById('toggleApiKeyBtn');
 const rateSlider = document.getElementById('rateSlider');
+const rateValueLabel = document.getElementById('rateValueLabel');
 const langListWrap = document.getElementById('langListWrap');
 const langSelect = document.getElementById('langSelect');
 const manualLangFields = document.getElementById('manualLangFields');
@@ -687,6 +688,7 @@ function openSettings(){
   apiKeyInput.classList.add('masked');
   toggleApiKeyBtn.textContent = '👁';
   rateSlider.value = speechRate;
+  updateRateValueLabel();
   renderLangList();
   renderLangSelect();
   addLangError.style.display = 'none';
@@ -699,6 +701,12 @@ toggleApiKeyBtn.onclick = ()=>{
   apiKeyInput.classList.toggle('masked', !hidden);
   toggleApiKeyBtn.textContent = hidden ? '🙈' : '👁';
 };
+function updateRateValueLabel(){
+  const min = parseFloat(rateSlider.min), max = parseFloat(rateSlider.max);
+  const pct = Math.round((parseFloat(rateSlider.value) - min) / (max - min) * 100);
+  rateValueLabel.textContent = pct;
+}
+rateSlider.addEventListener('input', updateRateValueLabel);
 function persistSettingsFields(){
   apiKey = apiKeyInput.value.trim();
   safeSetItem('vp_apikey', apiKey);

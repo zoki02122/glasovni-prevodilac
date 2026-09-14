@@ -244,7 +244,7 @@
 
   <header>
     <div class="header-row1">
-      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v31</span></h1>
+      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v32</span></h1>
       <button class="gear-btn" id="settingsBtn" aria-label="Podešavanja">⚙</button>
     </div>
     <div class="lang-row" id="langRow"></div>
@@ -262,7 +262,7 @@
     <div class="mic-row">
       <button class="side-toggle active" id="dirMine">Ja<br>govorim</button>
       <div class="input-wrap">
-        <input type="text" id="voiceInput" placeholder="Dodirni, pa koristi mikrofon tastature" autocomplete="off">
+        <input type="text" id="voiceInput" name="voice-transcript-field" placeholder="Dodirni, pa koristi mikrofon tastature" autocomplete="off">
       </div>
       <button class="send-btn" id="sendBtn" aria-label="Pošalji">
         <svg viewBox="0 0 24 24" fill="none" stroke="#1a1408" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -292,7 +292,7 @@
         <div class="field">
           <label>Gemini API ključ</label>
           <div style="display:flex; gap:8px;">
-            <input type="password" id="apiKeyInput" placeholder="Nalepi ključ ovde" style="flex:1;" autocomplete="off">
+            <input type="password" id="apiKeyInput" name="gemini-api-key-field" placeholder="Nalepi ključ ovde" style="flex:1;" autocomplete="new-password">
             <button type="button" class="btn btn-ghost" id="toggleApiKeyBtn" style="padding:10px 14px;">👁</button>
           </div>
           <div class="field-hint">Čuva se samo lokalno na ovom telefonu, ne ide u kod aplikacije.</div>

@@ -274,7 +274,7 @@
 
   <header>
     <div class="header-row1">
-      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v39</span></h1>
+      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v40</span></h1>
       <div class="header-actions">
         <button class="gear-btn" id="openSavedBtn" aria-label="Sačuvano">⭐</button>
         <button class="gear-btn" id="quickClearBtn" aria-label="Obriši razgovor">🗑</button>
@@ -485,13 +485,20 @@ const ALL_LANGS = [
 const MANUAL_LANG_VALUE = '__manual__';
 const SR_CODE = 'sr-RS';
 
-let langs = JSON.parse(localStorage.getItem('vp_languages') || 'null') || DEFAULT_LANGS;
-let selectedLangCode = localStorage.getItem('vp_selectedLangCode') || (DEFAULT_LANGS[0] && DEFAULT_LANGS[0].code);
-let direction = localStorage.getItem('vp_direction') || 'mine'; // 'mine' | 'guest'
-let chatHistory = JSON.parse(localStorage.getItem('vp_history') || '[]');
-let savedItems = JSON.parse(localStorage.getItem('vp_saved') || '[]');
-let apiKey = localStorage.getItem('vp_apikey') || '';
-let speechRate = parseFloat(localStorage.getItem('vp_rate') || '1');
+function safeGetItem(key){
+  try{ return localStorage.getItem(key); }catch(e){ return null; }
+}
+function safeSetItem(key, value){
+  try{ localStorage.setItem(key, value); }catch(e){ /* storage unavailable (e.g. blocked in Incognito) — ignore */ }
+}
+
+let langs = JSON.parse(safeGetItem('vp_languages') || 'null') || DEFAULT_LANGS;
+let selectedLangCode = safeGetItem('vp_selectedLangCode') || (DEFAULT_LANGS[0] && DEFAULT_LANGS[0].code);
+let direction = safeGetItem('vp_direction') || 'mine'; // 'mine' | 'guest'
+let chatHistory = JSON.parse(safeGetItem('vp_history') || '[]');
+let savedItems = JSON.parse(safeGetItem('vp_saved') || '[]');
+let apiKey = safeGetItem('vp_apikey') || '';
+let speechRate = parseFloat(safeGetItem('vp_rate') || '1');
 
 let recState = 'idle'; // 'idle' | 'processing'
 
@@ -545,14 +552,14 @@ const confirmCancel = document.getElementById('confirmCancel');
 const confirmOk = document.getElementById('confirmOk');
 
 /* ============ persistence ============ */
-function saveLangs(){ localStorage.setItem('vp_languages', JSON.stringify(langs)); }
-function saveHistory(){ localStorage.setItem('vp_history', JSON.stringify(chatHistory)); }
-function saveSavedItems(){ localStorage.setItem('vp_saved', JSON.stringify(savedItems)); }
-function saveSelected(){ localStorage.setItem('vp_selectedLangCode', selectedLangCode); }
+function saveLangs(){ safeSetItem('vp_languages', JSON.stringify(langs)); }
+function saveHistory(){ safeSetItem('vp_history', JSON.stringify(chatHistory)); }
+function saveSavedItems(){ safeSetItem('vp_saved', JSON.stringify(savedItems)); }
+function saveSelected(){ safeSetItem('vp_selectedLangCode', selectedLangCode); }
 function getSelectedLang(){
   return langs.find(l=>l.code===selectedLangCode) || langs[0];
 }
-function saveDirection(){ localStorage.setItem('vp_direction', direction); }
+function saveDirection(){ safeSetItem('vp_direction', direction); }
 
 /* ============ custom confirm ============ */
 function customConfirm(title, body, okLabel, okDanger){
@@ -692,9 +699,9 @@ toggleApiKeyBtn.onclick = ()=>{
 };
 function persistSettingsFields(){
   apiKey = apiKeyInput.value.trim();
-  localStorage.setItem('vp_apikey', apiKey);
+  safeSetItem('vp_apikey', apiKey);
   speechRate = parseFloat(rateSlider.value);
-  localStorage.setItem('vp_rate', String(speechRate));
+  safeSetItem('vp_rate', String(speechRate));
   renderLangRow();
 }
 function closeSettings(){

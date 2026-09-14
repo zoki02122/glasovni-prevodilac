@@ -274,7 +274,7 @@
 
   <header>
     <div class="header-row1">
-      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v38</span></h1>
+      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v39</span></h1>
       <div class="header-actions">
         <button class="gear-btn" id="openSavedBtn" aria-label="Sačuvano">⭐</button>
         <button class="gear-btn" id="quickClearBtn" aria-label="Obriši razgovor">🗑</button>
@@ -628,8 +628,11 @@ function openModal(overlayEl, name){
   overlayEl.style.display = 'flex';
 }
 function closeModal(overlayEl){
-  overlayEl.style.display = 'none';
-  if(history.state && history.state.modal){ history.back(); }
+  if(history.state && history.state.modal){
+    history.back(); // the popstate handler hides the right overlay based on what's actually on top
+  } else {
+    overlayEl.style.display = 'none';
+  }
 }
 window.addEventListener('popstate', ()=>{
   if(savedDetailOverlay.style.display === 'flex'){

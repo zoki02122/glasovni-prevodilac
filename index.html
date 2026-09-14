@@ -274,7 +274,7 @@
 
   <header>
     <div class="header-row1">
-      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v40</span></h1>
+      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v41</span></h1>
       <div class="header-actions">
         <button class="gear-btn" id="openSavedBtn" aria-label="Sačuvano">⭐</button>
         <button class="gear-btn" id="quickClearBtn" aria-label="Obriši razgovor">🗑</button>
@@ -583,7 +583,7 @@ function customConfirm(title, body, okLabel, okDanger){
       confirmCancel.removeEventListener('click', onCancel);
       confirmOk.removeEventListener('click', onOk);
       window.removeEventListener('popstate', onPop);
-      if(goBack && history.state && history.state.modal==='confirm'){ history.back(); }
+      if(goBack && history.state && history.state.modal==='confirm'){ suppressNextGlobalPopstate = true; history.back(); }
       resolve(v);
     }
     function onCancel(){ cleanup(false, true); }
@@ -634,6 +634,7 @@ function openModal(overlayEl, name){
   history.pushState({ modal:name }, '');
   overlayEl.style.display = 'flex';
 }
+let suppressNextGlobalPopstate = false;
 function closeModal(overlayEl){
   if(history.state && history.state.modal){
     history.back(); // the popstate handler hides the right overlay based on what's actually on top
@@ -642,6 +643,7 @@ function closeModal(overlayEl){
   }
 }
 window.addEventListener('popstate', ()=>{
+  if(suppressNextGlobalPopstate){ suppressNextGlobalPopstate = false; return; }
   if(savedDetailOverlay.style.display === 'flex'){
     savedDetailOverlay.style.display = 'none';
     return;

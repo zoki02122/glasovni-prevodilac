@@ -80,10 +80,10 @@
 
   .mic-row{ display:flex; align-items:center; justify-content:space-between; pointer-events:none; padding: 0 8px; width:100%; box-sizing:border-box; }
   .side-toggle{
-    pointer-events:auto; width:96px; flex:none;
-    text-align:center; padding: 10px 4px; border-radius: 999px;
-    font-size:13.5px; font-weight:600; color: var(--text-dim); cursor:pointer;
-    font-family:'Barlow', sans-serif; line-height:1.25;
+    pointer-events:auto; width:70px; flex:none;
+    text-align:center; padding: 9px 2px; border-radius: 999px;
+    font-size:12.5px; font-weight:600; color: var(--text-dim); cursor:pointer;
+    font-family:'Barlow', sans-serif; line-height:1.2;
     background: var(--bg-card); border:1px solid var(--border);
   }
   .side-toggle.active{
@@ -92,6 +92,23 @@
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.35);
     border-color: transparent;
   }
+  .input-wrap{ flex:1; position:relative; pointer-events:auto; }
+  .input-wrap input{
+    width:100%; box-sizing:border-box;
+    background: var(--bg-card); border:1px solid var(--border); border-radius:999px;
+    padding:12px 46px 12px 16px; color: var(--text);
+    font-family:'Barlow', sans-serif; font-size:15px;
+  }
+  .input-wrap input::placeholder{ color: var(--text-dim); }
+  .send-btn{
+    position:absolute; right:4px; top:50%; transform:translateY(-50%);
+    width:38px; height:38px; border-radius:50%; border:none;
+    background: linear-gradient(135deg, var(--accent-bright), var(--accent-dim));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.35);
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+  }
+  .send-btn svg{ width:17px; height:17px; }
+  .send-btn:disabled{ opacity:0.4; }
 
   /* ---------- feed ---------- */
   main{
@@ -161,32 +178,6 @@
     margin-bottom:10px; background: rgba(21,22,26,0.85); padding:4px 12px;
     border-radius:999px; min-height:20px;
   }
-  .mic-btn{
-    pointer-events:auto;
-    width:76px; height:76px; border-radius:50%; border:none;
-    background: linear-gradient(135deg, var(--accent-bright), var(--accent-dim));
-    box-shadow: 0 6px 18px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.35);
-    display:flex; align-items:center; justify-content:center;
-    cursor:pointer;
-  }
-  .mic-btn svg{ width:30px; height:30px; }
-  .mic-btn.listening{
-    background: linear-gradient(135deg, #d9634f, #8a3527);
-    animation: pulse 1.4s ease-in-out infinite;
-  }
-  .mic-btn.processing{
-    background: linear-gradient(135deg, #8a8a8f, #4a4a4f);
-    animation: pulse-dim 1.2s ease-in-out infinite;
-    pointer-events: none;
-  }
-  @keyframes pulse-dim{
-    0%{ opacity:1; } 50%{ opacity:0.6; } 100%{ opacity:1; }
-  }
-  @keyframes pulse{
-    0%{ box-shadow: 0 6px 18px rgba(0,0,0,0.45), 0 0 0 0 rgba(217,99,79,0.5); }
-    70%{ box-shadow: 0 6px 18px rgba(0,0,0,0.45), 0 0 0 16px rgba(217,99,79,0); }
-    100%{ box-shadow: 0 6px 18px rgba(0,0,0,0.45), 0 0 0 0 rgba(217,99,79,0); }
-  }
 
   /* ---------- modal ---------- */
   .modal-overlay{
@@ -253,7 +244,7 @@
 
   <header>
     <div class="header-row1">
-      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v26</span></h1>
+      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v27</span></h1>
       <button class="gear-btn" id="settingsBtn" aria-label="Podešavanja">⚙</button>
     </div>
     <div class="lang-row" id="langRow"></div>
@@ -270,14 +261,15 @@
     <div class="mic-status" id="micStatus"></div>
     <div class="mic-row">
       <button class="side-toggle active" id="dirMine">Ja<br>govorim</button>
-      <button class="mic-btn" id="micBtn" aria-label="Mikrofon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#1a1408" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="micIcon">
-          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-          <line x1="12" y1="19" x2="12" y2="23"/>
-          <line x1="8" y1="23" x2="16" y2="23"/>
-        </svg>
-      </button>
+      <div class="input-wrap">
+        <input type="text" id="voiceInput" placeholder="Dodirni, pa koristi mikrofon tastature" autocomplete="off">
+        <button class="send-btn" id="sendBtn" aria-label="Pošalji">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#1a1408" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"/>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+        </button>
+      </div>
       <button class="side-toggle" id="dirGuest">Gost<br>govori</button>
     </div>
   </div>
@@ -434,9 +426,7 @@ let chatHistory = JSON.parse(localStorage.getItem('vp_history') || '[]');
 let apiKey = localStorage.getItem('vp_apikey') || '';
 let speechRate = parseFloat(localStorage.getItem('vp_rate') || '1');
 
-let recognition = null;
-let accumulatedTranscript = '';
-let recState = 'idle'; // 'idle' | 'listening' | 'processing'
+let recState = 'idle'; // 'idle' | 'processing'
 
 /* ============ DOM refs ============ */
 const feed = document.getElementById('feed');
@@ -444,7 +434,8 @@ const emptyState = document.getElementById('emptyState');
 const langRow = document.getElementById('langRow');
 const dirMine = document.getElementById('dirMine');
 const dirGuest = document.getElementById('dirGuest');
-const micBtn = document.getElementById('micBtn');
+const voiceInput = document.getElementById('voiceInput');
+const sendBtn = document.getElementById('sendBtn');
 const micStatus = document.getElementById('micStatus');
 
 const settingsOverlay = document.getElementById('settingsOverlay');
@@ -512,7 +503,7 @@ function renderLangRow(){
     const b = document.createElement('button');
     b.className = 'lang-btn' + (l.code===selectedLangCode ? ' active' : '');
     b.textContent = l.label;
-    b.onclick = ()=>{ selectedLangCode = l.code; saveSelected(); renderLangRow(); };
+    b.onclick = ()=>{ selectedLangCode = l.code; saveSelected(); renderLangRow(); updateInputLangHint(); };
     langRow.appendChild(b);
   });
   const addBtn = document.createElement('button');
@@ -525,9 +516,19 @@ function renderLangRow(){
 function renderDirection(){
   dirMine.classList.toggle('active', direction==='mine');
   dirGuest.classList.toggle('active', direction==='guest');
+  updateInputLangHint();
 }
 dirMine.onclick = ()=>{ direction='mine'; saveDirection(); renderDirection(); };
 dirGuest.onclick = ()=>{ direction='guest'; saveDirection(); renderDirection(); };
+
+function updateInputLangHint(){
+  voiceInput.lang = getSTTLang();
+}
+function getSTTLang(){
+  // language being spoken right now — best-effort hint for the keyboard's dictation
+  if(direction==='mine') return SR_CODE;
+  return getSelectedLang().code;
+}
 
 /* ============ back button / gesture closes open modal ============ */
 function openModal(overlayEl, name){
@@ -774,109 +775,27 @@ function setControlsDisabled(disabled){
   langRow.querySelectorAll('button').forEach(b=>b.disabled = disabled);
 }
 
-function getSTTLang(){
-  // language being SPOKEN right now (for the on-device recognizer)
-  if(direction==='mine') return SR_CODE;
-  return getSelectedLang().code;
-}
-
-const FATAL_MIC_MESSAGES = {
-  'not-allowed': 'Dozvola za mikrofon je odbijena.',
-  'service-not-allowed': 'Dozvola za mikrofon je odbijena.',
-  'audio-capture': 'Mikrofon nije dostupan na uređaju.',
-  'network': 'Nema internet konekcije za prepoznavanje govora.'
-};
-
-function setupRecognition(){
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if(!SR){
-    micStatus.textContent = 'Prepoznavanje govora nije podržano u ovom pretraživaču.';
-    return null;
-  }
-  const r = new SR();
-  r.continuous = true;
-  r.interimResults = true; // keeping the recognizer actively fed tends to reduce how often it ends itself on brief pauses
-  r.maxAlternatives = 1;
-  r.onresult = (e)=>{
-    for(let i=e.resultIndex; i<e.results.length; i++){
-      if(e.results[i].isFinal){
-        accumulatedTranscript += (accumulatedTranscript ? ' ' : '') + e.results[i][0].transcript.trim();
-      }
-    }
-  };
-  r.onerror = (e)=>{
-    console.error('STT error', e.error);
-    if(e.error === 'no-speech'){ return; } // transient, keep listening
-    if(FATAL_MIC_MESSAGES[e.error]){
-      recState = 'idle';
-      micBtn.classList.remove('listening');
-      setControlsDisabled(false);
-      micStatus.textContent = FATAL_MIC_MESSAGES[e.error];
-      return;
-    }
-    micStatus.textContent = 'Greška mikrofona: ' + e.error;
-  };
-  r.onend = ()=>{
-    if(recState === 'listening'){
-      // Android sometimes ends the session on its own after a short silence;
-      // restart automatically as long as the user hasn't pressed stop.
-      try{ r.start(); }catch(err){}
-    }
-  };
-  return r;
-}
-
-function startListening(){
+async function submitVoiceInput(){
   if(recState !== 'idle') return;
-  recognition = setupRecognition();
-  if(!recognition) return;
-  accumulatedTranscript = '';
-  recognition.lang = getSTTLang();
-  recState = 'listening';
-  micBtn.classList.add('listening');
-  micStatus.textContent = 'Slušam... pritisni ponovo kad završiš';
-  setControlsDisabled(true);
-  try{ recognition.start(); }catch(err){ console.error(err); }
-}
-
-async function stopListening(){
-  if(recState !== 'listening') return;
-  recState = 'processing';
-  micBtn.classList.remove('listening');
-  micBtn.classList.add('processing');
-  setControlsDisabled(false);
-  if(recognition){ try{ recognition.stop(); }catch(err){} }
-
-  // give the final onresult a brief moment to arrive after stop()
-  await new Promise(r=>setTimeout(r, 300));
-
-  const transcript = accumulatedTranscript.trim();
-  accumulatedTranscript = '';
-
-  if(!transcript){
-    micStatus.textContent = 'Nije prepoznat govor, probaj ponovo.';
-    recState = 'idle';
-    micBtn.classList.remove('processing');
-    setTimeout(()=>{ if(recState==='idle') micStatus.textContent=''; }, 2500);
-    return;
-  }
+  const transcript = voiceInput.value.trim();
+  if(!transcript) return;
 
   if(!apiKey){
     micStatus.textContent = 'Nedostaje Gemini API ključ — dodaj ga u podešavanjima (⚙).';
     openSettings();
-    recState = 'idle';
-    micBtn.classList.remove('processing');
     return;
   }
 
+  recState = 'processing';
+  sendBtn.disabled = true;
+  voiceInput.disabled = true;
+  setControlsDisabled(true);
   micStatus.textContent = 'Obrađujem...';
   try{
     const sourceLangLabel = getSpokenLangLabel();
     const target = getTargetLang();
     const result = await cleanAndTranslateText(transcript, sourceLangLabel, target);
-    recState = 'idle';
-    micBtn.classList.remove('processing');
-    micStatus.textContent = '';
+    voiceInput.value = '';
     const turn = {
       direction,
       sourceLangLabel,
@@ -892,18 +811,21 @@ async function stopListening(){
     speak(turn.translatedText, turn.targetLangCode);
   }catch(err){
     console.error(err);
-    recState = 'idle';
-    micBtn.classList.remove('processing');
     micStatus.textContent = 'Greška: ' + err.message;
-    setTimeout(()=>{ if(recState==='idle') micStatus.textContent=''; }, 4000);
+    setTimeout(()=>{ micStatus.textContent=''; }, 4000);
+  }finally{
+    recState = 'idle';
+    sendBtn.disabled = false;
+    voiceInput.disabled = false;
+    setControlsDisabled(false);
+    if(!micStatus.textContent.startsWith('Greška')) micStatus.textContent = '';
   }
 }
 
-micBtn.onclick = ()=>{
-  if(recState==='idle'){ startListening(); }
-  else if(recState==='listening'){ stopListening(); }
-  // ignore taps while 'processing'
-};
+sendBtn.onclick = submitVoiceInput;
+voiceInput.addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter'){ e.preventDefault(); submitVoiceInput(); }
+});
 
 /* ============ text-only re-translate, used only when correcting a turn afterward ============ */
 async function cleanAndTranslateText(rawText, sourceLangLabel, target){

@@ -274,7 +274,7 @@
 
   <header>
     <div class="header-row1">
-      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v41</span></h1>
+      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v42</span></h1>
       <div class="header-actions">
         <button class="gear-btn" id="openSavedBtn" aria-label="Sačuvano">⭐</button>
         <button class="gear-btn" id="quickClearBtn" aria-label="Obriši razgovor">🗑</button>
@@ -938,8 +938,10 @@ function openSavedDetail(itemId){
     if(!ok) return;
     savedItems = savedItems.filter(x=>x.id !== item.id);
     saveSavedItems();
-    closeModal(savedDetailOverlay);
-    renderSavedList();
+    setTimeout(()=>{
+      closeModal(savedDetailOverlay);
+      renderSavedList();
+    }, 0);
   };
   openModal(savedDetailOverlay, 'saved-detail');
 }

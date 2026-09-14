@@ -180,8 +180,6 @@
     cursor:pointer; padding:4px; flex-shrink:0; line-height:1;
   }
   .saved-icon-btn.pinned{ color: var(--accent); }
-  .saved-detail{ display:none; padding:0 14px 14px; }
-  .saved-detail.open{ display:block; }
   .saved-rename-input{
     flex:1; background: var(--bg-raised); border:1px solid var(--border); border-radius:8px;
     padding:6px 10px; color: var(--text); font-family:'Barlow', sans-serif; font-size:15px;
@@ -214,6 +212,7 @@
     display:flex; align-items:flex-end; justify-content:center;
   }
   #confirmOverlay{ z-index:60; }
+  #savedDetailOverlay{ z-index:55; }
   .modal{
     width:100%; max-width:480px; background: var(--bg-raised);
     border-radius: 18px 18px 0 0; padding: 18px 18px calc(22px + env(safe-area-inset-bottom,0px));
@@ -275,7 +274,7 @@
 
   <header>
     <div class="header-row1">
-      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v37</span></h1>
+      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v38</span></h1>
       <div class="header-actions">
         <button class="gear-btn" id="openSavedBtn" aria-label="Sačuvano">⭐</button>
         <button class="gear-btn" id="quickClearBtn" aria-label="Obriši razgovor">🗑</button>
@@ -420,6 +419,17 @@
   </div>
 </div>
 
+<!-- Saved item detail (opens over the list, above it) -->
+<div class="modal-overlay" id="savedDetailOverlay" style="display:none;">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="savedDetailTitle">Sačuvano</h2>
+      <button class="modal-close" id="savedDetailXBtn" aria-label="Zatvori">✕</button>
+    </div>
+    <div id="savedDetailBody"></div>
+  </div>
+</div>
+
 <script>
 /* ============ state ============ */
 const DEFAULT_LANGS = [
@@ -510,6 +520,10 @@ const selSelectAllBtn = document.getElementById('selSelectAllBtn');
 const selCountLabel = document.getElementById('selCountLabel');
 const selPinBtn = document.getElementById('selPinBtn');
 const selDeleteBtn = document.getElementById('selDeleteBtn');
+const savedDetailOverlay = document.getElementById('savedDetailOverlay');
+const savedDetailTitle = document.getElementById('savedDetailTitle');
+const savedDetailBody = document.getElementById('savedDetailBody');
+const savedDetailXBtn = document.getElementById('savedDetailXBtn');
 const closeSettingsBtn = document.getElementById('closeSettingsBtn');
 const settingsXBtn = document.getElementById('settingsXBtn');
 const apiKeyInput = document.getElementById('apiKeyInput');
@@ -618,23 +632,23 @@ function closeModal(overlayEl){
   if(history.state && history.state.modal){ history.back(); }
 }
 window.addEventListener('popstate', ()=>{
-  if(savedOverlay.style.display === 'flex' && openSavedDetailEl){
-    openSavedDetailEl.classList.remove('open');
-    openSavedDetailEl = null;
-    history.pushState({ modal:'saved' }, ''); // restore the state so the next back press still closes the modal
+  if(savedDetailOverlay.style.display === 'flex'){
+    savedDetailOverlay.style.display = 'none';
     return;
   }
   if(savedOverlay.style.display === 'flex' && selectionMode){
     selectionMode = false;
     selectedIds = new Set();
     renderSavedList();
-    history.pushState({ modal:'saved' }, '');
+    history.pushState({ modal:'saved' }, ''); // restore the state so the next back press still closes the modal
+    return;
+  }
+  if(savedOverlay.style.display === 'flex'){
+    savedOverlay.style.display = 'none';
     return;
   }
   if(settingsOverlay.style.display === 'flex'){ persistSettingsFields(); }
   settingsOverlay.style.display = 'none';
-  confirmOverlay.style.display = 'none';
-  savedOverlay.style.display = 'none';
 });
 
 /* ============ accordion ============ */
@@ -778,7 +792,6 @@ function formatSavedDate(ts){
   return `${datePart} ${timePart}`;
 }
 
-let openSavedDetailEl = null;
 let selectionMode = false;
 let selectedIds = new Set();
 let longPressTimer = null;
@@ -830,20 +843,8 @@ function renderSavedList(){
         <div class="saved-item-name">${item.pinned ? '📌 ' : ''}${escapeHtml(item.name)}</div>
         <div class="saved-item-date">${formatSavedDate(item.savedAt)}</div>
       </div>
-      <div class="saved-detail" id="saved-detail-${item.id}">
-        <div class="card-label">${item.direction==='mine' ? 'TI' : 'GOST · ' + escapeHtml(item.sourceLangLabel)}</div>
-        <div class="card-text" style="margin-bottom:10px;">${escapeHtml(item.cleanedText)}</div>
-        <div class="card-label">${item.direction==='mine' ? escapeHtml(item.targetLangLabel) : 'TI (srpski)'}</div>
-        <div class="card-text" style="margin-bottom:12px;">${escapeHtml(item.translatedText)}</div>
-        <div class="review-actions">
-          <button class="btn btn-ghost rename-btn">Preimenuj</button>
-          <button class="btn btn-ghost speak-saved-btn">🔊 Izgovori</button>
-          <button class="btn btn-ghost delete-saved-btn" style="color:var(--danger); border-color:var(--danger);">Obriši</button>
-        </div>
-      </div>
     `;
     const header = el.querySelector('.saved-item-header');
-    const detail = el.querySelector('.saved-detail');
 
     // long-press to enter selection mode
     const startPress = ()=>{
@@ -871,14 +872,7 @@ function renderSavedList(){
         return;
       }
       if(e.target.closest('.pin-btn')) return;
-      if(detail.classList.contains('open')){
-        detail.classList.remove('open');
-        openSavedDetailEl = null;
-      } else {
-        if(openSavedDetailEl && openSavedDetailEl !== detail){ openSavedDetailEl.classList.remove('open'); }
-        detail.classList.add('open');
-        openSavedDetailEl = detail;
-      }
+      openSavedDetail(item.id);
     };
     el.querySelector('.pin-btn').onclick = (e)=>{
       e.stopPropagation();
@@ -887,46 +881,66 @@ function renderSavedList(){
       saveSavedItems();
       renderSavedList();
     };
-    el.querySelector('.speak-saved-btn').onclick = ()=> speak(item.translatedText, item.targetLangCode);
-    el.querySelector('.rename-btn').onclick = ()=>{
-      const nameDiv = el.querySelector('.saved-item-name');
-      const input = document.createElement('input');
-      input.type = 'text';
-      input.value = item.name;
-      input.className = 'saved-rename-input';
-      nameDiv.replaceWith(input);
-      input.focus();
-      input.select();
-      const commit = ()=>{
-        const v = input.value.trim();
-        if(v) item.name = v;
-        saveSavedItems();
-        renderSavedList();
-      };
-      input.addEventListener('blur', commit);
-      input.addEventListener('keydown', (ev)=>{ if(ev.key === 'Enter'){ ev.preventDefault(); input.blur(); } });
-    };
-    el.querySelector('.delete-saved-btn').onclick = async ()=>{
-      const ok = await customConfirm('Obriši sačuvano?', `Obrisati "${item.name}" iz sačuvanog? Ovo se ne može vratiti.`);
-      if(!ok) return;
-      savedItems = savedItems.filter(x=>x.id !== item.id);
-      saveSavedItems();
-      renderSavedList();
-    };
 
     savedListWrap.appendChild(el);
   });
 }
 
+function openSavedDetail(itemId){
+  const item = savedItems.find(it=>it.id === itemId);
+  if(!item) return;
+  savedDetailTitle.textContent = item.name;
+  savedDetailBody.innerHTML = `
+    <div class="card-label">${item.direction==='mine' ? 'TI' : 'GOST · ' + escapeHtml(item.sourceLangLabel)}</div>
+    <div class="card-text" style="margin-bottom:10px;">${escapeHtml(item.cleanedText)}</div>
+    <div class="card-label">${item.direction==='mine' ? escapeHtml(item.targetLangLabel) : 'TI (srpski)'}</div>
+    <div class="card-text" style="margin-bottom:16px;">${escapeHtml(item.translatedText)}</div>
+    <div class="review-actions">
+      <button class="btn btn-ghost" id="savedDetailRenameBtn">Preimenuj</button>
+      <button class="btn btn-ghost" id="savedDetailSpeakBtn">🔊 Izgovori</button>
+      <button class="btn btn-ghost" id="savedDetailDeleteBtn" style="color:var(--danger); border-color:var(--danger);">Obriši</button>
+    </div>
+  `;
+  savedDetailBody.querySelector('#savedDetailSpeakBtn').onclick = ()=> speak(item.translatedText, item.targetLangCode);
+  savedDetailBody.querySelector('#savedDetailRenameBtn').onclick = ()=>{
+    const titleEl = savedDetailTitle;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = item.name;
+    input.className = 'saved-rename-input';
+    titleEl.replaceWith(input);
+    input.focus();
+    input.select();
+    const commit = ()=>{
+      const v = input.value.trim();
+      if(v) item.name = v;
+      saveSavedItems();
+      input.replaceWith(titleEl);
+      titleEl.textContent = item.name;
+    };
+    input.addEventListener('blur', commit);
+    input.addEventListener('keydown', (ev)=>{ if(ev.key === 'Enter'){ ev.preventDefault(); input.blur(); } });
+  };
+  savedDetailBody.querySelector('#savedDetailDeleteBtn').onclick = async ()=>{
+    const ok = await customConfirm('Obriši sačuvano?', `Obrisati "${item.name}" iz sačuvanog? Ovo se ne može vratiti.`);
+    if(!ok) return;
+    savedItems = savedItems.filter(x=>x.id !== item.id);
+    saveSavedItems();
+    closeModal(savedDetailOverlay);
+    renderSavedList();
+  };
+  openModal(savedDetailOverlay, 'saved-detail');
+}
+savedDetailXBtn.onclick = ()=> closeModal(savedDetailOverlay);
+
 openSavedBtn.onclick = ()=>{
   savedSearchInput.value = '';
-  openSavedDetailEl = null;
   selectionMode = false;
   selectedIds = new Set();
   renderSavedList();
   openModal(savedOverlay, 'saved');
 };
-savedXBtn.onclick = ()=>{ openSavedDetailEl = null; selectionMode = false; selectedIds = new Set(); closeModal(savedOverlay); };
+savedXBtn.onclick = ()=>{ selectionMode = false; selectedIds = new Set(); closeModal(savedOverlay); };
 savedSearchInput.addEventListener('input', renderSavedList);
 
 selCancelBtn.onclick = exitSelectionMode;

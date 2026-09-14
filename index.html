@@ -253,7 +253,7 @@
 
   <header>
     <div class="header-row1">
-      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v24</span></h1>
+      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v25</span></h1>
       <button class="gear-btn" id="settingsBtn" aria-label="Podešavanja">⚙</button>
     </div>
     <div class="lang-row" id="langRow"></div>
@@ -777,12 +777,32 @@ function setControlsDisabled(disabled){
   langRow.querySelectorAll('button').forEach(b=>b.disabled = disabled);
 }
 
-function encodeWAV(chunks, sampleRate){
+function mergeChunks(chunks){
   let totalLen = 0;
   for(const c of chunks) totalLen += c.length;
   const merged = new Float32Array(totalLen);
   let off = 0;
   for(const c of chunks){ merged.set(c, off); off += c.length; }
+  return merged;
+}
+
+function resamplePCM(samples, fromRate, toRate){
+  if(fromRate === toRate) return samples;
+  const ratio = fromRate / toRate;
+  const newLength = Math.round(samples.length / ratio);
+  const result = new Float32Array(newLength);
+  for(let i=0;i<newLength;i++){
+    const srcIndex = i * ratio;
+    const idx0 = Math.floor(srcIndex);
+    const idx1 = Math.min(idx0+1, samples.length-1);
+    const frac = srcIndex - idx0;
+    result[i] = samples[idx0]*(1-frac) + samples[idx1]*frac;
+  }
+  return result;
+}
+
+function encodeWAV(samples, sampleRate){
+  const merged = samples;
 
   const buffer = new ArrayBuffer(44 + merged.length*2);
   const view = new DataView(buffer);
@@ -877,7 +897,10 @@ async function stopListening(){
 
   micStatus.textContent = 'Obrađujem...';
   try{
-    const wavBlob = encodeWAV(pcmChunks, sampleRate);
+    const TARGET_RATE = 16000;
+    const merged = mergeChunks(pcmChunks);
+    const downsampled = resamplePCM(merged, sampleRate, TARGET_RATE);
+    const wavBlob = encodeWAV(downsampled, TARGET_RATE);
     pcmChunks = [];
     const base64 = await blobToBase64(wavBlob);
     const result = await transcribeAndTranslate(base64);

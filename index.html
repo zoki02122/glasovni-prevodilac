@@ -180,6 +180,14 @@
     background: linear-gradient(135deg, #d9634f, #8a3527);
     animation: pulse 1.4s ease-in-out infinite;
   }
+  .mic-btn.processing{
+    background: linear-gradient(135deg, #8a8a8f, #4a4a4f);
+    animation: pulse-dim 1.2s ease-in-out infinite;
+    pointer-events: none;
+  }
+  @keyframes pulse-dim{
+    0%{ opacity:1; } 50%{ opacity:0.6; } 100%{ opacity:1; }
+  }
   @keyframes pulse{
     0%{ box-shadow: 0 6px 18px rgba(0,0,0,0.45), 0 0 0 0 rgba(217,99,79,0.5); }
     70%{ box-shadow: 0 6px 18px rgba(0,0,0,0.45), 0 0 0 16px rgba(217,99,79,0); }
@@ -251,7 +259,7 @@
 
   <header>
     <div class="header-row1">
-      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v22</span></h1>
+      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v23</span></h1>
       <button class="gear-btn" id="settingsBtn" aria-label="Podešavanja">⚙</button>
     </div>
     <div class="lang-row" id="langRow"></div>
@@ -432,9 +440,12 @@ let chatHistory = JSON.parse(localStorage.getItem('vp_history') || '[]');
 let apiKey = localStorage.getItem('vp_apikey') || '';
 let speechRate = parseFloat(localStorage.getItem('vp_rate') || '1');
 
-let recognition = null;
-let listening = false;
-let accumulatedTranscript = '';
+let mediaStream = null;
+let audioCtx = null;
+let audioSource = null;
+let audioProcessor = null;
+let pcmChunks = [];
+let recState = 'idle'; // 'idle' | 'listening' | 'processing'
 
 /* ============ DOM refs ============ */
 const feed = document.getElementById('feed');
@@ -720,100 +731,176 @@ function escapeHtml(s){
   return d.innerHTML;
 }
 
-/* ============ speech recognition ============ */
-function getSTTLang(){
-  // language being SPOKEN right now
-  if(direction==='mine') return SR_CODE;
-  return getSelectedLang().code;
-}
+/* ============ silent audio capture (no OS speech-recognition beeps) ============ */
 function getTargetLang(){
   // language to TRANSLATE INTO
   if(direction==='mine') return getSelectedLang();
   return { label:'Srpski', code: SR_CODE };
 }
-
-function setupRecognition(){
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if(!SR){
-    micStatus.textContent = 'Prepoznavanje govora nije podržano u ovom pretraživaču.';
-    return null;
-  }
-  const r = new SR();
-  r.continuous = true;
-  r.interimResults = false;
-  r.maxAlternatives = 1;
-  r.onresult = (e)=>{
-    for(let i=e.resultIndex; i<e.results.length; i++){
-      if(e.results[i].isFinal){
-        accumulatedTranscript += (accumulatedTranscript ? ' ' : '') + e.results[i][0].transcript.trim();
-      }
-    }
-  };
-  r.onerror = (e)=>{
-    console.error('STT error', e.error);
-    if(e.error === 'no-speech'){ return; } // transient, keep listening
-    const fatal = ['not-allowed','service-not-allowed','audio-capture','network'];
-    if(fatal.includes(e.error)){
-      listening = false;
-      micBtn.classList.remove('listening');
-      dirMine.disabled = false; dirGuest.disabled = false;
-      langRow.querySelectorAll('button').forEach(b=>b.disabled = false);
-      const messages = {
-        'not-allowed': 'Dozvola za mikrofon je odbijena.',
-        'service-not-allowed': 'Dozvola za mikrofon je odbijena.',
-        'audio-capture': 'Mikrofon nije dostupan na uređaju.',
-        'network': 'Nema internet konekcije za prepoznavanje govora.'
-      };
-      micStatus.textContent = messages[e.error] || ('Greška mikrofona: ' + e.error);
-      return;
-    }
-    micStatus.textContent = 'Greška mikrofona: ' + e.error;
-  };
-  r.onend = ()=>{
-    if(listening){
-      // Chrome sometimes ends recognition on its own after a long silence;
-      // restart automatically as long as the user hasn't pressed stop.
-      try{ r.start(); }catch(err){}
-    }
-  };
-  return r;
+function getSpokenLangLabel(){
+  return direction==='mine' ? 'Srpski' : getSelectedLang().label;
 }
 
-function startListening(){
-  recognition = setupRecognition();
-  if(!recognition) return;
-  accumulatedTranscript = '';
-  recognition.lang = getSTTLang();
-  listening = true;
+function setControlsDisabled(disabled){
+  dirMine.disabled = disabled; dirGuest.disabled = disabled;
+  langRow.querySelectorAll('button').forEach(b=>b.disabled = disabled);
+}
+
+function encodeWAV(chunks, sampleRate){
+  let totalLen = 0;
+  for(const c of chunks) totalLen += c.length;
+  const merged = new Float32Array(totalLen);
+  let off = 0;
+  for(const c of chunks){ merged.set(c, off); off += c.length; }
+
+  const buffer = new ArrayBuffer(44 + merged.length*2);
+  const view = new DataView(buffer);
+  function writeStr(v, offset, str){ for(let i=0;i<str.length;i++) v.setUint8(offset+i, str.charCodeAt(i)); }
+  writeStr(view,0,'RIFF');
+  view.setUint32(4, 36 + merged.length*2, true);
+  writeStr(view,8,'WAVE');
+  writeStr(view,12,'fmt ');
+  view.setUint32(16,16,true);
+  view.setUint16(20,1,true);   // PCM
+  view.setUint16(22,1,true);   // mono
+  view.setUint32(24,sampleRate,true);
+  view.setUint32(28,sampleRate*2,true);
+  view.setUint16(32,2,true);
+  view.setUint16(34,16,true);
+  writeStr(view,36,'data');
+  view.setUint32(40, merged.length*2, true);
+  let idx = 44;
+  for(let i=0;i<merged.length;i++){
+    let s = Math.max(-1, Math.min(1, merged[i]));
+    view.setInt16(idx, s<0 ? s*0x8000 : s*0x7FFF, true);
+    idx += 2;
+  }
+  return new Blob([buffer], {type:'audio/wav'});
+}
+
+function blobToBase64(blob){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onloadend = ()=> resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+const FATAL_MIC_MESSAGES = {
+  'NotAllowedError': 'Dozvola za mikrofon je odbijena.',
+  'PermissionDeniedError': 'Dozvola za mikrofon je odbijena.',
+  'NotFoundError': 'Mikrofon nije pronađen na uređaju.',
+  'NotReadableError': 'Mikrofon je zauzet ili nedostupan.'
+};
+
+async function startListening(){
+  if(recState !== 'idle') return;
+  pcmChunks = [];
+  try{
+    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  }catch(err){
+    console.error(err);
+    micStatus.textContent = FATAL_MIC_MESSAGES[err.name] || ('Greška mikrofona: ' + err.name);
+    return;
+  }
+  recState = 'listening';
   micBtn.classList.add('listening');
   micStatus.textContent = 'Slušam... pritisni ponovo kad završiš';
-  dirMine.disabled = true; dirGuest.disabled = true;
-  langRow.querySelectorAll('button').forEach(b=>b.disabled = true);
-  try{ recognition.start(); }catch(err){ console.error(err); }
+  setControlsDisabled(true);
+
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  audioSource = audioCtx.createMediaStreamSource(mediaStream);
+  audioProcessor = audioCtx.createScriptProcessor(4096, 1, 1);
+  const silentGain = audioCtx.createGain();
+  silentGain.gain.value = 0; // capture without audibly looping the mic back through the speaker
+  audioProcessor.onaudioprocess = (e)=>{
+    pcmChunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+  };
+  audioSource.connect(audioProcessor);
+  audioProcessor.connect(silentGain);
+  silentGain.connect(audioCtx.destination);
 }
 
-function stopListening(){
-  listening = false;
+async function stopListening(){
+  if(recState !== 'listening') return;
+  recState = 'processing';
   micBtn.classList.remove('listening');
-  micStatus.textContent = '';
-  dirMine.disabled = false; dirGuest.disabled = false;
-  langRow.querySelectorAll('button').forEach(b=>b.disabled = false);
-  if(recognition){
-    try{ recognition.stop(); }catch(err){}
+  micBtn.classList.add('processing');
+  setControlsDisabled(false);
+
+  const sampleRate = audioCtx ? audioCtx.sampleRate : 44100;
+  try{ audioProcessor.disconnect(); }catch(err){}
+  try{ audioSource.disconnect(); }catch(err){}
+  if(mediaStream){ mediaStream.getTracks().forEach(t=>t.stop()); }
+  if(audioCtx){ try{ audioCtx.close(); }catch(err){} }
+
+  const totalSamples = pcmChunks.reduce((a,c)=>a+c.length, 0);
+  if(totalSamples < sampleRate * 0.3){ // less than ~0.3s of audio
+    micStatus.textContent = 'Nije prepoznat govor, probaj ponovo.';
+    recState = 'idle';
+    micBtn.classList.remove('processing');
+    setTimeout(()=>{ if(recState==='idle') micStatus.textContent=''; }, 2500);
+    return;
   }
-  setTimeout(()=>{
-    if(accumulatedTranscript.trim()){
-      showReviewCard(accumulatedTranscript.trim());
+
+  micStatus.textContent = 'Obrađujem...';
+  try{
+    const wavBlob = encodeWAV(pcmChunks, sampleRate);
+    pcmChunks = [];
+    const base64 = await blobToBase64(wavBlob);
+    const transcript = await transcribeAudio(base64);
+    recState = 'idle';
+    micBtn.classList.remove('processing');
+    micStatus.textContent = '';
+    if(transcript && transcript.trim()){
+      showReviewCard(transcript.trim());
     } else {
       micStatus.textContent = 'Nije prepoznat govor, probaj ponovo.';
-      setTimeout(()=>{ if(!listening) micStatus.textContent=''; }, 2500);
+      setTimeout(()=>{ if(recState==='idle') micStatus.textContent=''; }, 2500);
     }
-  }, 300);
+  }catch(err){
+    console.error(err);
+    recState = 'idle';
+    micBtn.classList.remove('processing');
+    micStatus.textContent = 'Greška: ' + err.message;
+    setTimeout(()=>{ if(recState==='idle') micStatus.textContent=''; }, 4000);
+  }
+}
+
+async function transcribeAudio(base64Wav){
+  if(!apiKey){
+    micStatus.textContent = 'Nedostaje Gemini API ključ — dodaj ga u podešavanjima (⚙).';
+    openSettings();
+    throw new Error('Nema API ključa.');
+  }
+  const spokenLangLabel = getSpokenLangLabel();
+  const prompt = `Transkribuj sledeći audio zapis govora. Govornik govori na jeziku: ${spokenLangLabel}. Vrati ISKLJUČIVO sirovi transkript izgovorenog teksta na tom jeziku — bez navodnika, bez markdown formatiranja, bez ikakvog dodatnog komentara. Ako ne čuješ nikakav razgovetan govor, vrati prazan odgovor.`;
+
+  const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`, {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [
+        { text: prompt },
+        { inline_data: { mime_type: 'audio/wav', data: base64Wav } }
+      ]}],
+      generationConfig: { temperature: 0.2 }
+    })
+  });
+  if(!resp.ok){
+    const errText = await resp.text();
+    throw new Error(`API greška ${resp.status}: ${errText.slice(0,200)}`);
+  }
+  const data = await resp.json();
+  const raw = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  return (raw || '').trim();
 }
 
 micBtn.onclick = ()=>{
-  if(listening){ stopListening(); }
-  else { startListening(); }
+  if(recState==='idle'){ startListening(); }
+  else if(recState==='listening'){ stopListening(); }
+  // ignore taps while 'processing'
 };
 
 /* ============ review card (edit before translate) ============ */

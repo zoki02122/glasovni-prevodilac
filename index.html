@@ -253,7 +253,7 @@
 
   <header>
     <div class="header-row1">
-      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v25</span></h1>
+      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v26</span></h1>
       <button class="gear-btn" id="settingsBtn" aria-label="Podešavanja">⚙</button>
     </div>
     <div class="lang-row" id="langRow"></div>
@@ -434,11 +434,8 @@ let chatHistory = JSON.parse(localStorage.getItem('vp_history') || '[]');
 let apiKey = localStorage.getItem('vp_apikey') || '';
 let speechRate = parseFloat(localStorage.getItem('vp_rate') || '1');
 
-let mediaStream = null;
-let audioCtx = null;
-let audioSource = null;
-let audioProcessor = null;
-let pcmChunks = [];
+let recognition = null;
+let accumulatedTranscript = '';
 let recState = 'idle'; // 'idle' | 'listening' | 'processing'
 
 /* ============ DOM refs ============ */
@@ -777,100 +774,69 @@ function setControlsDisabled(disabled){
   langRow.querySelectorAll('button').forEach(b=>b.disabled = disabled);
 }
 
-function mergeChunks(chunks){
-  let totalLen = 0;
-  for(const c of chunks) totalLen += c.length;
-  const merged = new Float32Array(totalLen);
-  let off = 0;
-  for(const c of chunks){ merged.set(c, off); off += c.length; }
-  return merged;
-}
-
-function resamplePCM(samples, fromRate, toRate){
-  if(fromRate === toRate) return samples;
-  const ratio = fromRate / toRate;
-  const newLength = Math.round(samples.length / ratio);
-  const result = new Float32Array(newLength);
-  for(let i=0;i<newLength;i++){
-    const srcIndex = i * ratio;
-    const idx0 = Math.floor(srcIndex);
-    const idx1 = Math.min(idx0+1, samples.length-1);
-    const frac = srcIndex - idx0;
-    result[i] = samples[idx0]*(1-frac) + samples[idx1]*frac;
-  }
-  return result;
-}
-
-function encodeWAV(samples, sampleRate){
-  const merged = samples;
-
-  const buffer = new ArrayBuffer(44 + merged.length*2);
-  const view = new DataView(buffer);
-  function writeStr(v, offset, str){ for(let i=0;i<str.length;i++) v.setUint8(offset+i, str.charCodeAt(i)); }
-  writeStr(view,0,'RIFF');
-  view.setUint32(4, 36 + merged.length*2, true);
-  writeStr(view,8,'WAVE');
-  writeStr(view,12,'fmt ');
-  view.setUint32(16,16,true);
-  view.setUint16(20,1,true);   // PCM
-  view.setUint16(22,1,true);   // mono
-  view.setUint32(24,sampleRate,true);
-  view.setUint32(28,sampleRate*2,true);
-  view.setUint16(32,2,true);
-  view.setUint16(34,16,true);
-  writeStr(view,36,'data');
-  view.setUint32(40, merged.length*2, true);
-  let idx = 44;
-  for(let i=0;i<merged.length;i++){
-    let s = Math.max(-1, Math.min(1, merged[i]));
-    view.setInt16(idx, s<0 ? s*0x8000 : s*0x7FFF, true);
-    idx += 2;
-  }
-  return new Blob([buffer], {type:'audio/wav'});
-}
-
-function blobToBase64(blob){
-  return new Promise((resolve, reject)=>{
-    const reader = new FileReader();
-    reader.onloadend = ()=> resolve(reader.result.split(',')[1]);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
+function getSTTLang(){
+  // language being SPOKEN right now (for the on-device recognizer)
+  if(direction==='mine') return SR_CODE;
+  return getSelectedLang().code;
 }
 
 const FATAL_MIC_MESSAGES = {
-  'NotAllowedError': 'Dozvola za mikrofon je odbijena.',
-  'PermissionDeniedError': 'Dozvola za mikrofon je odbijena.',
-  'NotFoundError': 'Mikrofon nije pronađen na uređaju.',
-  'NotReadableError': 'Mikrofon je zauzet ili nedostupan.'
+  'not-allowed': 'Dozvola za mikrofon je odbijena.',
+  'service-not-allowed': 'Dozvola za mikrofon je odbijena.',
+  'audio-capture': 'Mikrofon nije dostupan na uređaju.',
+  'network': 'Nema internet konekcije za prepoznavanje govora.'
 };
 
-async function startListening(){
-  if(recState !== 'idle') return;
-  pcmChunks = [];
-  try{
-    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  }catch(err){
-    console.error(err);
-    micStatus.textContent = FATAL_MIC_MESSAGES[err.name] || ('Greška mikrofona: ' + err.name);
-    return;
+function setupRecognition(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR){
+    micStatus.textContent = 'Prepoznavanje govora nije podržano u ovom pretraživaču.';
+    return null;
   }
+  const r = new SR();
+  r.continuous = true;
+  r.interimResults = true; // keeping the recognizer actively fed tends to reduce how often it ends itself on brief pauses
+  r.maxAlternatives = 1;
+  r.onresult = (e)=>{
+    for(let i=e.resultIndex; i<e.results.length; i++){
+      if(e.results[i].isFinal){
+        accumulatedTranscript += (accumulatedTranscript ? ' ' : '') + e.results[i][0].transcript.trim();
+      }
+    }
+  };
+  r.onerror = (e)=>{
+    console.error('STT error', e.error);
+    if(e.error === 'no-speech'){ return; } // transient, keep listening
+    if(FATAL_MIC_MESSAGES[e.error]){
+      recState = 'idle';
+      micBtn.classList.remove('listening');
+      setControlsDisabled(false);
+      micStatus.textContent = FATAL_MIC_MESSAGES[e.error];
+      return;
+    }
+    micStatus.textContent = 'Greška mikrofona: ' + e.error;
+  };
+  r.onend = ()=>{
+    if(recState === 'listening'){
+      // Android sometimes ends the session on its own after a short silence;
+      // restart automatically as long as the user hasn't pressed stop.
+      try{ r.start(); }catch(err){}
+    }
+  };
+  return r;
+}
+
+function startListening(){
+  if(recState !== 'idle') return;
+  recognition = setupRecognition();
+  if(!recognition) return;
+  accumulatedTranscript = '';
+  recognition.lang = getSTTLang();
   recState = 'listening';
   micBtn.classList.add('listening');
   micStatus.textContent = 'Slušam... pritisni ponovo kad završiš';
   setControlsDisabled(true);
-
-  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  audioSource = audioCtx.createMediaStreamSource(mediaStream);
-  audioProcessor = audioCtx.createScriptProcessor(4096, 1, 1);
-  const silentGain = audioCtx.createGain();
-  silentGain.gain.value = 0; // capture without audibly looping the mic back through the speaker
-  audioProcessor.onaudioprocess = (e)=>{
-    pcmChunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
-  };
-  audioSource.connect(audioProcessor);
-  audioProcessor.connect(silentGain);
-  silentGain.connect(audioCtx.destination);
+  try{ recognition.start(); }catch(err){ console.error(err); }
 }
 
 async function stopListening(){
@@ -879,15 +845,15 @@ async function stopListening(){
   micBtn.classList.remove('listening');
   micBtn.classList.add('processing');
   setControlsDisabled(false);
+  if(recognition){ try{ recognition.stop(); }catch(err){} }
 
-  const sampleRate = audioCtx ? audioCtx.sampleRate : 44100;
-  try{ audioProcessor.disconnect(); }catch(err){}
-  try{ audioSource.disconnect(); }catch(err){}
-  if(mediaStream){ mediaStream.getTracks().forEach(t=>t.stop()); }
-  if(audioCtx){ try{ audioCtx.close(); }catch(err){} }
+  // give the final onresult a brief moment to arrive after stop()
+  await new Promise(r=>setTimeout(r, 300));
 
-  const totalSamples = pcmChunks.reduce((a,c)=>a+c.length, 0);
-  if(totalSamples < sampleRate * 0.3){ // less than ~0.3s of audio
+  const transcript = accumulatedTranscript.trim();
+  accumulatedTranscript = '';
+
+  if(!transcript){
     micStatus.textContent = 'Nije prepoznat govor, probaj ponovo.';
     recState = 'idle';
     micBtn.classList.remove('processing');
@@ -895,36 +861,35 @@ async function stopListening(){
     return;
   }
 
+  if(!apiKey){
+    micStatus.textContent = 'Nedostaje Gemini API ključ — dodaj ga u podešavanjima (⚙).';
+    openSettings();
+    recState = 'idle';
+    micBtn.classList.remove('processing');
+    return;
+  }
+
   micStatus.textContent = 'Obrađujem...';
   try{
-    const TARGET_RATE = 16000;
-    const merged = mergeChunks(pcmChunks);
-    const downsampled = resamplePCM(merged, sampleRate, TARGET_RATE);
-    const wavBlob = encodeWAV(downsampled, TARGET_RATE);
-    pcmChunks = [];
-    const base64 = await blobToBase64(wavBlob);
-    const result = await transcribeAndTranslate(base64);
+    const sourceLangLabel = getSpokenLangLabel();
+    const target = getTargetLang();
+    const result = await cleanAndTranslateText(transcript, sourceLangLabel, target);
     recState = 'idle';
     micBtn.classList.remove('processing');
     micStatus.textContent = '';
-    if(result.cleaned && result.cleaned.trim()){
-      const turn = {
-        direction,
-        sourceLangLabel: result.sourceLangLabel,
-        targetLangLabel: result.target.label,
-        targetLangCode: result.target.code,
-        cleanedText: result.cleaned,
-        translatedText: result.translation,
-        ts: Date.now()
-      };
-      chatHistory.push(turn);
-      saveHistory();
-      renderFeed();
-      speak(turn.translatedText, turn.targetLangCode);
-    } else {
-      micStatus.textContent = 'Nije prepoznat govor, probaj ponovo.';
-      setTimeout(()=>{ if(recState==='idle') micStatus.textContent=''; }, 2500);
-    }
+    const turn = {
+      direction,
+      sourceLangLabel,
+      targetLangLabel: target.label,
+      targetLangCode: target.code,
+      cleanedText: result.cleaned,
+      translatedText: result.translation,
+      ts: Date.now()
+    };
+    chatHistory.push(turn);
+    saveHistory();
+    renderFeed();
+    speak(turn.translatedText, turn.targetLangCode);
   }catch(err){
     console.error(err);
     recState = 'idle';
@@ -932,47 +897,6 @@ async function stopListening(){
     micStatus.textContent = 'Greška: ' + err.message;
     setTimeout(()=>{ if(recState==='idle') micStatus.textContent=''; }, 4000);
   }
-}
-
-async function transcribeAndTranslate(base64Wav){
-  if(!apiKey){
-    micStatus.textContent = 'Nedostaje Gemini API ključ — dodaj ga u podešavanjima (⚙).';
-    openSettings();
-    throw new Error('Nema API ključa.');
-  }
-  const spokenLangLabel = getSpokenLangLabel();
-  const target = getTargetLang();
-  const prompt = `Dobićeš audio zapis govora na jeziku: ${spokenLangLabel}.
-Zadatak, tačno tim redosledom:
-1) Transkribuj šta je izgovoreno.
-2) Očisti transkript: ukloni poštapalice, nedovršene rečenice i ponavljanja, izvuci pravu nameru govornika. Ne dodaji ništa što nije rečeno, ne menjaj smisao.
-3) Prevedi očišćeni tekst na jezik: ${target.label} (${target.code}).
-Ako ne čuješ nikakav razgovetan govor, vrati prazne stringove za sva tri polja.
-Odgovori ISKLJUČIVO JSON objektom, bez markdown ograda, tačno u ovom obliku:
-{"cleaned": "očišćen tekst na izvornom jeziku", "translation": "prevod na ciljni jezik"}`;
-
-  const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`, {
-    method:'POST',
-    headers:{ 'Content-Type':'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [
-        { text: prompt },
-        { inline_data: { mime_type: 'audio/wav', data: base64Wav } }
-      ]}],
-      generationConfig: { responseMimeType: 'application/json', temperature: 0.3 }
-    })
-  });
-  if(!resp.ok){
-    const errText = await resp.text();
-    throw new Error(`API greška ${resp.status}: ${errText.slice(0,200)}`);
-  }
-  const data = await resp.json();
-  const raw = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  if(!raw) throw new Error('Prazan odgovor od modela.');
-  let parsed;
-  try{ parsed = JSON.parse(raw); }
-  catch(e){ throw new Error('Model nije vratio ispravan JSON.'); }
-  return { sourceLangLabel: spokenLangLabel, target, cleaned: parsed.cleaned || '', translation: parsed.translation || '' };
 }
 
 micBtn.onclick = ()=>{

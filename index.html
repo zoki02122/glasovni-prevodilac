@@ -80,7 +80,7 @@
 
   .mic-row{ display:flex; align-items:center; justify-content:space-between; gap:8px; pointer-events:none; padding: 0 8px; width:100%; box-sizing:border-box; }
   .side-toggle{
-    pointer-events:auto; width:62px; flex:none;
+    pointer-events:auto; width:56px; flex:none;
     text-align:center; padding: 9px 2px; border-radius: 999px;
     font-size:12.5px; font-weight:600; color: var(--text-dim); cursor:pointer;
     font-family:'Barlow', sans-serif; line-height:1.2;
@@ -102,12 +102,12 @@
   .input-wrap input::placeholder{ color: var(--text-dim); }
   .send-btn{
     pointer-events:auto; flex:none;
-    width:68px; height:68px; border-radius:50%; border:none;
+    width:80px; height:80px; border-radius:50%; border:none;
     background: linear-gradient(135deg, var(--accent-bright), var(--accent-dim));
     box-shadow: 0 4px 12px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.35);
     display:flex; align-items:center; justify-content:center; cursor:pointer;
   }
-  .send-btn svg{ width:30px; height:30px; }
+  .send-btn svg{ width:34px; height:34px; }
   .send-btn:disabled{ opacity:0.4; }
 
   /* ---------- feed ---------- */
@@ -244,7 +244,7 @@
 
   <header>
     <div class="header-row1">
-      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v30</span></h1>
+      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v31</span></h1>
       <button class="gear-btn" id="settingsBtn" aria-label="Podešavanja">⚙</button>
     </div>
     <div class="lang-row" id="langRow"></div>
@@ -518,8 +518,8 @@ function renderDirection(){
   dirGuest.classList.toggle('active', direction==='guest');
   updateInputLangHint();
 }
-dirMine.onclick = ()=>{ direction='mine'; saveDirection(); renderDirection(); };
-dirGuest.onclick = ()=>{ direction='guest'; saveDirection(); renderDirection(); };
+dirMine.onclick = ()=>{ direction='mine'; saveDirection(); renderDirection(); voiceInput.focus(); };
+dirGuest.onclick = ()=>{ direction='guest'; saveDirection(); renderDirection(); voiceInput.focus(); };
 
 function updateInputLangHint(){
   voiceInput.lang = getSTTLang();

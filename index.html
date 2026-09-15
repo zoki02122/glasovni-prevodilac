@@ -310,7 +310,7 @@
 
   <header>
     <div class="header-row1">
-      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v65</span></h1>
+      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v66</span></h1>
       <div class="header-actions">
         <button class="gear-btn" id="muteBtn" aria-label="Isključi zvuk">🔊</button>
         <button class="gear-btn" id="openSavedBtn" aria-label="Sačuvano">⭐</button>
@@ -421,10 +421,31 @@
     </div>
 
     <div class="accordion-item">
+      <button class="accordion-header" data-target="secVoices">
+        <span>Glasovi za izgovor</span><span class="accordion-arrow">▾</span>
+      </button>
+      <div class="accordion-body" id="secVoices">
+        <div class="field">
+          <label>Jezik</label>
+          <select id="voiceLangSelect"></select>
+        </div>
+        <div class="field">
+          <label>Glas</label>
+          <select id="voiceSelect"></select>
+        </div>
+        <button class="btn btn-ghost" style="width:100%;" id="testVoiceBtn">🔊 Probaj ovaj glas</button>
+      </div>
+    </div>
+
+    <div class="accordion-item">
       <button class="accordion-header" data-target="secHistory">
         <span>Istorija razgovora <span class="accordion-count" id="historyCount"></span></span><span class="accordion-arrow">▾</span>
       </button>
       <div class="accordion-body" id="secHistory">
+        <div class="field-hint" style="margin-bottom:8px;">Rezervna kopija Sačuvanog (⭐):</div>
+        <button class="btn btn-ghost" style="width:100%; margin-bottom:10px;" id="exportSavedBtn">⬇ Izvezi sačuvano (.json)</button>
+        <button class="btn btn-ghost" style="width:100%; margin-bottom:10px;" id="importSavedBtn">⬆ Uvezi sačuvano (.json)</button>
+        <input type="file" id="importSavedFile" accept="application/json" style="display:none;">
         <button class="btn btn-ghost" style="width:100%; color:var(--danger); border-color:var(--danger);" id="clearHistoryBtn">Obriši istoriju razgovora</button>
       </div>
     </div>
@@ -549,6 +570,7 @@ let savedItems = JSON.parse(safeGetItem('vp_saved') || '[]');
 let apiKey = safeGetItem('vp_apikey') || '';
 let speechRate = parseFloat(safeGetItem('vp_rate') || '1');
 let muted = safeGetItem('vp_muted') === '1';
+let voicePrefs = JSON.parse(safeGetItem('vp_voice_prefs') || '{}');
 
 let recState = 'idle'; // 'idle' | 'processing'
 
@@ -602,6 +624,12 @@ const newLangCode = document.getElementById('newLangCode');
 const addLangBtn = document.getElementById('addLangBtn');
 const addLangError = document.getElementById('addLangError');
 const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+const voiceLangSelect = document.getElementById('voiceLangSelect');
+const voiceSelect = document.getElementById('voiceSelect');
+const testVoiceBtn = document.getElementById('testVoiceBtn');
+const exportSavedBtn = document.getElementById('exportSavedBtn');
+const importSavedBtn = document.getElementById('importSavedBtn');
+const importSavedFile = document.getElementById('importSavedFile');
 
 const confirmOverlay = document.getElementById('confirmOverlay');
 const confirmTitle = document.getElementById('confirmTitle');
@@ -751,6 +779,7 @@ function openSettings(){
   langSearchInput.value = '';
   renderLangSelect();
   addLangError.style.display = 'none';
+  renderVoiceLangSelect();
   closeAllAccordionSections();
   updateAccordionCounts();
   openModal(settingsOverlay, 'settings');
@@ -873,6 +902,54 @@ async function clearHistory(){
   updateAccordionCounts();
 }
 clearHistoryBtn.onclick = clearHistory;
+
+exportSavedBtn.onclick = ()=>{
+  const blob = new Blob([JSON.stringify(savedItems, null, 2)], { type:'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = new Date().toISOString().slice(0,10);
+  a.href = url;
+  a.download = `glasovni-prevodilac-sacuvano-${stamp}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+};
+
+importSavedBtn.onclick = ()=> importSavedFile.click();
+importSavedFile.addEventListener('change', ()=>{
+  const file = importSavedFile.files[0];
+  importSavedFile.value = '';
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = async ()=>{
+    let incoming;
+    try{ incoming = JSON.parse(reader.result); }
+    catch(e){
+      micStatus.textContent = 'Fajl nije ispravan JSON.';
+      setTimeout(()=>{ micStatus.textContent=''; }, 4000);
+      return;
+    }
+    if(!Array.isArray(incoming)){
+      micStatus.textContent = 'Fajl nema očekivan oblik.';
+      setTimeout(()=>{ micStatus.textContent=''; }, 4000);
+      return;
+    }
+    const existingIds = new Set(savedItems.map(it=>it.id));
+    let addedCount = 0;
+    incoming.forEach(it=>{
+      if(it && it.id && !existingIds.has(it.id)){
+        savedItems.push(it);
+        existingIds.add(it.id);
+        addedCount++;
+      }
+    });
+    saveSavedItems();
+    updateAccordionCounts();
+    const ok = await customConfirm('Uvezeno', `Dodato ${addedCount} novih stavki u Sačuvano (preskočeni duplikati).`, 'U redu', false);
+  };
+  reader.readAsText(file);
+});
 quickClearBtn.onclick = clearHistory;
 
 function updateMuteBtn(){
@@ -1173,6 +1250,11 @@ function startCorrection(cardEl, idx){
   cardEl.querySelector('#correctionSave').onclick = async ()=>{
     const newText = cardEl.querySelector('#correctionText').value.trim();
     if(!newText) return;
+    if(!navigator.onLine){
+      micStatus.textContent = 'Nema internet konekcije.';
+      setTimeout(()=>{ micStatus.textContent=''; }, 3000);
+      return;
+    }
     const saveBtn = cardEl.querySelector('#correctionSave');
     saveBtn.textContent = 'Prevodim...';
     saveBtn.disabled = true;
@@ -1189,7 +1271,7 @@ function startCorrection(cardEl, idx){
       console.error(err);
       saveBtn.textContent = 'Sačuvaj i prevedi ponovo';
       saveBtn.disabled = false;
-      micStatus.textContent = 'Greška: ' + err.message;
+      micStatus.textContent = friendlyErrorMessage(err);
       setTimeout(()=>{ micStatus.textContent=''; }, 4000);
     }
   };
@@ -1226,6 +1308,11 @@ async function submitVoiceInput(){
     openSettings();
     return;
   }
+  if(!navigator.onLine){
+    micStatus.textContent = 'Nema internet konekcije.';
+    setTimeout(()=>{ micStatus.textContent=''; }, 3000);
+    return;
+  }
 
   dropCurrentPanel();
   recState = 'processing';
@@ -1254,7 +1341,7 @@ async function submitVoiceInput(){
     speak(turn.translatedText, turn.targetLangCode);
   }catch(err){
     console.error(err);
-    micStatus.textContent = 'Greška: ' + err.message;
+    micStatus.textContent = friendlyErrorMessage(err);
     setTimeout(()=>{ micStatus.textContent=''; }, 4000);
   }finally{
     recState = 'idle';
@@ -1271,6 +1358,30 @@ voiceInput.addEventListener('keydown', (e)=>{
 });
 
 /* ============ text-only re-translate, used only when correcting a turn afterward ============ */
+function friendlyErrorMessage(err){
+  const msg = (err && err.message) || '';
+  if(!navigator.onLine){ return 'Nema internet konekcije.'; }
+  if(err instanceof TypeError || /Failed to fetch|NetworkError|network/i.test(msg)){
+    return 'Nema internet konekcije ili server ne odgovara.';
+  }
+  if(/API greška 401|API greška 403/.test(msg)){
+    return 'API ključ nije važeći — provera u podešavanjima.';
+  }
+  if(/API greška 429/.test(msg)){
+    return 'Dostignut je dnevni limit poziva — probaj kasnije ili sutra.';
+  }
+  if(/API greška 400/.test(msg)){
+    return 'Server nije prihvatio zahtev — probaj ponovo.';
+  }
+  if(/API greška 5\d\d/.test(msg)){
+    return 'Server trenutno ima problem — probaj ponovo za malo.';
+  }
+  if(/Model nije vratio|Prazan odgovor/.test(msg)){
+    return 'Model nije vratio odgovor — probaj ponovo.';
+  }
+  return 'Greška: ' + msg;
+}
+
 async function cleanAndTranslateText(rawText, sourceLangLabel, target){
   const prompt = `Izvor: ${sourceLangLabel}. Cilj: ${target.label} (${target.code}).
 Tekst: """${rawText}"""
@@ -1300,6 +1411,56 @@ JSON: {"cleaned":"...","translation":"..."}`;
 }
 
 /* ============ text to speech ============ */
+function getVoiceLangOptions(){
+  return [{ label:'Srpski', code: SR_CODE }, ...langs];
+}
+function renderVoiceLangSelect(){
+  voiceLangSelect.innerHTML = '';
+  getVoiceLangOptions().forEach(l=>{
+    const opt = document.createElement('option');
+    opt.value = l.code;
+    opt.textContent = l.label;
+    voiceLangSelect.appendChild(opt);
+  });
+  renderVoiceSelect();
+}
+function renderVoiceSelect(){
+  const langCode = voiceLangSelect.value;
+  const voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
+  const prefix = langCode.split('-')[0];
+  const matches = voices.filter(v=> v.lang===langCode || v.lang.startsWith(prefix));
+  voiceSelect.innerHTML = '';
+  if(matches.length === 0){
+    const opt = document.createElement('option');
+    opt.textContent = 'Nema dostupnih glasova za ovaj jezik';
+    opt.disabled = true;
+    voiceSelect.appendChild(opt);
+    return;
+  }
+  matches.forEach(v=>{
+    const opt = document.createElement('option');
+    opt.value = v.name;
+    opt.textContent = `${v.name} (${v.lang})`;
+    voiceSelect.appendChild(opt);
+  });
+  const saved = voicePrefs[langCode];
+  if(saved && matches.some(v=>v.name===saved)){ voiceSelect.value = saved; }
+}
+voiceLangSelect.onchange = renderVoiceSelect;
+voiceSelect.onchange = ()=>{
+  const langCode = voiceLangSelect.value;
+  voicePrefs[langCode] = voiceSelect.value;
+  safeSetItem('vp_voice_prefs', JSON.stringify(voicePrefs));
+};
+testVoiceBtn.onclick = ()=>{
+  speak('Ovo je probni izgovor ovog glasa.', voiceLangSelect.value, true);
+};
+if(window.speechSynthesis){
+  window.speechSynthesis.addEventListener('voiceschanged', ()=>{
+    if(settingsOverlay.style.display === 'flex'){ renderVoiceSelect(); }
+  });
+}
+
 function speak(text, langCode, force){
   if(!force && muted) return;
   if(!text || !window.speechSynthesis) return;
@@ -1308,7 +1469,10 @@ function speak(text, langCode, force){
   u.lang = langCode;
   u.rate = speechRate;
   const voices = window.speechSynthesis.getVoices();
-  const match = voices.find(v=>v.lang === langCode) || voices.find(v=>v.lang.startsWith(langCode.split('-')[0]));
+  let match = null;
+  const preferredName = voicePrefs[langCode];
+  if(preferredName){ match = voices.find(v=>v.name === preferredName); }
+  if(!match){ match = voices.find(v=>v.lang === langCode) || voices.find(v=>v.lang.startsWith(langCode.split('-')[0])); }
   if(match) u.voice = match;
   window.speechSynthesis.speak(u);
 }

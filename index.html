@@ -274,7 +274,7 @@
 
   <header>
     <div class="header-row1">
-      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v44</span></h1>
+      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v45</span></h1>
       <div class="header-actions">
         <button class="gear-btn" id="openSavedBtn" aria-label="Sačuvano">⭐</button>
         <button class="gear-btn" id="quickClearBtn" aria-label="Obriši razgovor">🗑</button>
@@ -350,6 +350,10 @@
         <div id="langListWrap"></div>
 
         <div class="field-hint" style="margin:12px 0 8px;">Dodaj novi jezik sa liste:</div>
+        <div class="field">
+          <label>🔍 Pretraži jezik</label>
+          <input type="text" id="langSearchInput" placeholder="Ukucaj naziv jezika..." autocomplete="off">
+        </div>
         <div class="field">
           <label>Jezik</label>
           <select id="langSelect"></select>
@@ -539,6 +543,7 @@ const rateSlider = document.getElementById('rateSlider');
 const rateValueLabel = document.getElementById('rateValueLabel');
 const langListWrap = document.getElementById('langListWrap');
 const langSelect = document.getElementById('langSelect');
+const langSearchInput = document.getElementById('langSearchInput');
 const manualLangFields = document.getElementById('manualLangFields');
 const newLangLabel = document.getElementById('newLangLabel');
 const newLangCode = document.getElementById('newLangCode');
@@ -690,6 +695,7 @@ function openSettings(){
   rateSlider.value = speechRate;
   updateRateValueLabel();
   renderLangList();
+  langSearchInput.value = '';
   renderLangSelect();
   addLangError.style.display = 'none';
   closeAllAccordionSections();
@@ -746,7 +752,12 @@ function renderLangList(){
 }
 function renderLangSelect(){
   const addedCodes = langs.map(l=>l.code);
-  const available = ALL_LANGS.filter(l=>!addedCodes.includes(l.code));
+  const filterText = langSearchInput.value.trim().toLowerCase();
+  const available = ALL_LANGS.filter(l=>{
+    if(addedCodes.includes(l.code)) return false;
+    if(filterText && !l.label.toLowerCase().includes(filterText)) return false;
+    return true;
+  });
   langSelect.innerHTML = '';
   available.forEach(l=>{
     const opt = document.createElement('option');
@@ -762,6 +773,7 @@ function renderLangSelect(){
   addLangError.style.display = 'none';
   addLangError.textContent = 'Siva reč u polju je samo primer — upiši svoj naziv i kod pre dodavanja.';
 }
+langSearchInput.addEventListener('input', renderLangSelect);
 langSelect.onchange = ()=>{
   manualLangFields.style.display = (langSelect.value === MANUAL_LANG_VALUE) ? 'block' : 'none';
   addLangError.style.display = 'none';

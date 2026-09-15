@@ -274,7 +274,7 @@
 
   <header>
     <div class="header-row1">
-      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v43</span></h1>
+      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v44</span></h1>
       <div class="header-actions">
         <button class="gear-btn" id="openSavedBtn" aria-label="Sačuvano">⭐</button>
         <button class="gear-btn" id="quickClearBtn" aria-label="Obriši razgovor">🗑</button>
@@ -362,11 +362,11 @@
           </div>
           <div class="field">
             <label>Jezički kod (BCP-47, npr. el-GR)</label>
-            <input type="text" id="newLangCode" placeholder="el-GR">
+            <input type="text" id="newLangCode" placeholder="npr. el-GR (upiši svoj kod)">
             <div class="field-hint">Primeri: el-GR grčki, es-ES španski, it-IT italijanski, de-DE nemački.</div>
           </div>
         </div>
-        <div class="field-error" id="addLangError">Upiši i naziv i kod jezika pre dodavanja.</div>
+        <div class="field-error" id="addLangError">Siva reč u polju je samo primer — upiši svoj naziv i kod pre dodavanja.</div>
         <button class="btn btn-ghost" style="width:100%;" id="addLangBtn">+ Dodaj jezik</button>
       </div>
     </div>
@@ -760,7 +760,7 @@ function renderLangSelect(){
   langSelect.appendChild(manualOpt);
   manualLangFields.style.display = 'none';
   addLangError.style.display = 'none';
-  addLangError.textContent = 'Upiši i naziv i kod jezika pre dodavanja.';
+  addLangError.textContent = 'Siva reč u polju je samo primer — upiši svoj naziv i kod pre dodavanja.';
 }
 langSelect.onchange = ()=>{
   manualLangFields.style.display = (langSelect.value === MANUAL_LANG_VALUE) ? 'block' : 'none';
@@ -773,7 +773,7 @@ addLangBtn.onclick = ()=>{
     const code = newLangCode.value.trim();
     if(!label || !code){
       addLangError.style.display = 'block';
-      addLangError.textContent = 'Upiši i naziv i kod jezika pre dodavanja.';
+      addLangError.textContent = 'Siva reč u polju je samo primer — upiši svoj naziv i kod pre dodavanja.';
       return;
     }
     if(langs.some(l=>l.code.toLowerCase()===code.toLowerCase())){

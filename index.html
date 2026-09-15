@@ -274,7 +274,7 @@
 
   <header>
     <div class="header-row1">
-      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v47</span></h1>
+      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v48</span></h1>
       <div class="header-actions">
         <button class="gear-btn" id="openSavedBtn" aria-label="Sačuvano">⭐</button>
         <button class="gear-btn" id="quickClearBtn" aria-label="Obriši razgovor">🗑</button>
@@ -339,6 +339,8 @@
             <span style="font-size:13px;color:var(--text-dim);">brzo</span>
           </div>
         </div>
+        <button class="btn btn-primary" style="width:100%;" id="saveApiBtn">Sačuvaj</button>
+        <span id="saveApiConfirm" style="display:none; font-size:13px; color:var(--accent); margin-top:8px; text-align:center;">Sačuvano ✓</span>
       </div>
     </div>
 
@@ -385,7 +387,7 @@
     </div>
 
     <div class="modal-actions">
-      <button class="btn btn-primary" id="closeSettingsBtn" style="width:100%;">Sačuvaj i zatvori</button>
+      <button class="btn btn-ghost" style="width:100%;" id="closeSettingsBtn">Zatvori</button>
     </div>
   </div>
 </div>
@@ -536,6 +538,8 @@ const savedDetailTitle = document.getElementById('savedDetailTitle');
 const savedDetailBody = document.getElementById('savedDetailBody');
 const savedDetailXBtn = document.getElementById('savedDetailXBtn');
 const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+const saveApiBtn = document.getElementById('saveApiBtn');
+const saveApiConfirm = document.getElementById('saveApiConfirm');
 const settingsXBtn = document.getElementById('settingsXBtn');
 const apiKeyInput = document.getElementById('apiKeyInput');
 const toggleApiKeyBtn = document.getElementById('toggleApiKeyBtn');
@@ -726,6 +730,11 @@ function closeSettings(){
 }
 settingsBtn.onclick = openSettings;
 closeSettingsBtn.onclick = closeSettings;
+saveApiBtn.onclick = ()=>{
+  persistSettingsFields();
+  saveApiConfirm.style.display = 'block';
+  setTimeout(()=>{ saveApiConfirm.style.display = 'none'; }, 1800);
+};
 settingsXBtn.onclick = closeSettings;
 
 function renderLangList(){

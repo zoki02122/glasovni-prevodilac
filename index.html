@@ -274,7 +274,7 @@
 
   <header>
     <div class="header-row1">
-      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v46</span></h1>
+      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v47</span></h1>
       <div class="header-actions">
         <button class="gear-btn" id="openSavedBtn" aria-label="Sačuvano">⭐</button>
         <button class="gear-btn" id="quickClearBtn" aria-label="Obriši razgovor">🗑</button>
@@ -755,7 +755,7 @@ function renderLangSelect(){
   const filterText = langSearchInput.value.trim().toLowerCase();
   const available = ALL_LANGS.filter(l=>{
     if(addedCodes.includes(l.code)) return false;
-    if(filterText && !l.label.toLowerCase().includes(filterText)) return false;
+    if(filterText && !l.label.toLowerCase().startsWith(filterText)) return false;
     return true;
   });
   langSelect.innerHTML = '';

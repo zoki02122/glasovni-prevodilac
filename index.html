@@ -25,8 +25,26 @@
     --accent: #c9974a;
     --accent-bright: #e0b06a;
     --accent-dim: #8a6a35;
+    --accent-text: #1a1408;
     --danger: #c25b4a;
     --radius: 14px;
+  }
+  /* ---------- light theme ---------- */
+  :root[data-theme="light"]{
+    --bg: #f7f3ec;
+    --bg-raised: #e9dec4;
+    --bg-card: #ffffff;
+    --border: #e4ddcf;
+    --text: #2b2620;
+    --text-dim: #7c7468;
+    --danger: #b8463a;
+  }
+  /* ---------- accent colors ---------- */
+  :root[data-accent="blue"]{
+    --accent: #4a86c9; --accent-bright: #6fa8e0; --accent-dim: #355e8a; --accent-text: #0d1a26;
+  }
+  :root[data-accent="green"]{
+    --accent: #4a9d68; --accent-bright: #6fc48a; --accent-dim: #2f6b45; --accent-text: #0c1f13;
   }
   *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body{
@@ -66,14 +84,14 @@
   .lang-row::-webkit-scrollbar{ display:none; }
   .lang-btn{
     flex: 0 0 auto;
-    background: var(--bg-card); border:1px solid var(--border);
+    background: var(--bg-raised); border:1px solid var(--border);
     color: var(--text-dim); font-family:'Barlow', sans-serif;
     font-size: 15px; font-weight:500; padding: 8px 16px;
     border-radius: 999px; white-space:nowrap; cursor:pointer;
   }
   .lang-btn.active{
     background: linear-gradient(135deg, var(--accent-bright), var(--accent-dim));
-    color: #1a1408; border-color: transparent; font-weight:600;
+    color: var(--accent-text); border-color: transparent; font-weight:600;
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.35);
   }
   .lang-btn.add{ color: var(--accent); border-color: var(--accent-dim); }
@@ -85,11 +103,11 @@
     text-align:center; padding: 9px 2px; border-radius: 999px;
     font-size:12.5px; font-weight:600; color: var(--text-dim); cursor:pointer;
     font-family:'Barlow', sans-serif; line-height:1.2;
-    background: var(--bg-card); border:1px solid var(--border);
+    background: var(--bg-raised); border:1px solid var(--border);
   }
   .side-toggle.active{
     background: linear-gradient(135deg, var(--accent-bright), var(--accent-dim));
-    color:#1a1408;
+    color:var(--accent-text);
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.35);
     border-color: transparent;
   }
@@ -98,7 +116,7 @@
     position:absolute; left:0; right:0; bottom:0;
     width:100%; box-sizing:border-box; height:48px; resize:none;
     overflow:hidden; white-space:nowrap;
-    background: var(--bg-card); border:1px solid var(--border); border-radius:999px;
+    background: var(--bg-raised); border:1px solid var(--border); border-radius:999px;
     padding:13px 16px; color: var(--text);
     font-family:'Barlow', sans-serif; font-size:15px; line-height:1.3;
     transition: height 0.15s ease, border-radius 0.15s ease;
@@ -135,7 +153,7 @@
   .empty-state p{ font-size:15px; line-height:1.5; margin:4px 0 0; }
 
   .turn-divider{
-    background:#e0b06a;
+    background:var(--accent-bright);
     margin: 16px 14px; border-radius:6px;
   }
   .turn-pair{ display:flex; flex-direction:column; gap:2px; padding: 0 0; }
@@ -198,7 +216,7 @@
   }
   .btn-primary{
     flex:1; background: linear-gradient(135deg, var(--accent-bright), var(--accent-dim));
-    color:#1a1408; box-shadow: inset 0 1px 0 rgba(255,255,255,0.35);
+    color:var(--accent-text); box-shadow: inset 0 1px 0 rgba(255,255,255,0.35);
   }
   .btn-ghost{ background:none; color: var(--text-dim); border:1px solid var(--border); }
 
@@ -294,6 +312,15 @@
   .lang-list-item .rm{ color: var(--danger); background:none; border:none; font-size:14px; }
   .modal hr{ border:none; border-top:1px solid var(--border); margin:18px 0; }
   .slider-row{ display:flex; align-items:center; gap:10px; }
+  .theme-row{ display:flex; gap:10px; flex-wrap:wrap; }
+  .theme-swatch{
+    flex:1; min-width:84px; display:flex; flex-direction:column; align-items:center; gap:6px;
+    background: var(--bg-card); border:2px solid var(--border); border-radius:12px;
+    padding:10px 8px; color: var(--text-dim); font-family:'Barlow', sans-serif; font-size:13px;
+    cursor:pointer;
+  }
+  .theme-swatch.active{ border-color: var(--accent-bright); color: var(--text); }
+  .swatch-preview{ width:28px; height:28px; border-radius:50%; display:block; }
   .slider-row input[type=range]{ flex:1; }
 </style>
 </head>
@@ -302,7 +329,7 @@
 
   <header>
     <div class="header-row1">
-      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v69</span></h1>
+      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v71</span></h1>
       <div class="header-actions">
         <button class="gear-btn" id="muteBtn" aria-label="Isključi zvuk">🔊</button>
         <button class="gear-btn" id="openSavedBtn" aria-label="Sačuvano">⭐</button>
@@ -334,7 +361,7 @@
         <textarea id="voiceInput" name="voice-transcript-field" placeholder="Dodirni, pa koristi mikrofon tastature" autocomplete="off" rows="1"></textarea>
       </div>
       <button class="send-btn" id="sendBtn" aria-label="Pošalji">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#1a1408" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg viewBox="0 0 24 24" fill="none" style="stroke:var(--accent-text);" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <line x1="22" y1="2" x2="11" y2="13"/>
           <polygon points="22 2 15 22 11 13 2 9 22 2"/>
         </svg>
@@ -351,6 +378,39 @@
     <div class="modal-header">
       <h2>Podešavanja</h2>
       <button class="modal-close" id="settingsXBtn" aria-label="Zatvori">✕</button>
+    </div>
+
+    <div class="accordion-item">
+      <button class="accordion-header" data-target="secTheme">
+        <span>Izgled</span><span class="accordion-arrow">▾</span>
+      </button>
+      <div class="accordion-body" id="secTheme">
+        <div class="field">
+          <label>Pozadina</label>
+          <div class="theme-row">
+            <button class="theme-swatch" id="themeDarkBtn" data-theme="dark">
+              <span class="swatch-preview" style="background:#15161a;"></span>Tamna
+            </button>
+            <button class="theme-swatch" id="themeLightBtn" data-theme="light">
+              <span class="swatch-preview" style="background:#f7f3ec; border:1px solid #ddd;"></span>Svetla
+            </button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Boja akcenta</label>
+          <div class="theme-row">
+            <button class="theme-swatch" id="accentGoldBtn" data-accent="">
+              <span class="swatch-preview" style="background:#e0b06a;"></span>Zlatna
+            </button>
+            <button class="theme-swatch" id="accentBlueBtn" data-accent="blue">
+              <span class="swatch-preview" style="background:#6fa8e0;"></span>Plava
+            </button>
+            <button class="theme-swatch" id="accentGreenBtn" data-accent="green">
+              <span class="swatch-preview" style="background:#6fc48a;"></span>Zelena
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="accordion-item">
@@ -554,6 +614,15 @@ function safeSetItem(key, value){
   try{ localStorage.setItem(key, value); }catch(e){ /* storage unavailable (e.g. blocked in Incognito) — ignore */ }
 }
 
+function applyTheme(){
+  document.documentElement.setAttribute('data-theme', theme);
+  if(accentChoice){ document.documentElement.setAttribute('data-accent', accentChoice); }
+  else { document.documentElement.removeAttribute('data-accent'); }
+}
+let theme = safeGetItem('vp_theme') || 'dark';
+let accentChoice = safeGetItem('vp_accent') || '';
+applyTheme();
+
 let langs = JSON.parse(safeGetItem('vp_languages') || 'null') || DEFAULT_LANGS;
 let selectedLangCode = safeGetItem('vp_selectedLangCode') || (DEFAULT_LANGS[0] && DEFAULT_LANGS[0].code);
 let direction = safeGetItem('vp_direction') || 'mine'; // 'mine' | 'guest'
@@ -581,6 +650,7 @@ const settingsOverlay = document.getElementById('settingsOverlay');
 const settingsBtn = document.getElementById('settingsBtn');
 const quickClearBtn = document.getElementById('quickClearBtn');
 const muteBtn = document.getElementById('muteBtn');
+const themeSwatches = document.querySelectorAll('.theme-swatch');
 const openSavedBtn = document.getElementById('openSavedBtn');
 const savedOverlay = document.getElementById('savedOverlay');
 const savedXBtn = document.getElementById('savedXBtn');
@@ -650,7 +720,7 @@ function customConfirm(title, body, okLabel, okDanger){
     confirmOk.style.background = okDanger
       ? 'linear-gradient(135deg,#d9634f,#8a3527)'
       : 'linear-gradient(135deg, var(--accent-bright), var(--accent-dim))';
-    confirmOk.style.color = okDanger ? '#fff' : '#1a1408';
+    confirmOk.style.color = okDanger ? '#fff' : 'var(--accent-text)';
     history.pushState({ modal:'confirm' }, '');
     confirmOverlay.style.display = 'flex';
     let settled = false;
@@ -956,6 +1026,31 @@ muteBtn.onclick = ()=>{
 };
 updateMuteBtn();
 
+function updateThemeSwatches(){
+  themeSwatches.forEach(btn=>{
+    if(btn.dataset.theme !== undefined && btn.dataset.theme !== ''){
+      btn.classList.toggle('active', btn.dataset.theme === theme);
+    }
+    if(btn.dataset.accent !== undefined && btn.id.startsWith('accent')){
+      btn.classList.toggle('active', btn.dataset.accent === accentChoice);
+    }
+  });
+}
+themeSwatches.forEach(btn=>{
+  btn.onclick = ()=>{
+    if(btn.id.startsWith('theme')){
+      theme = btn.dataset.theme;
+      safeSetItem('vp_theme', theme);
+    } else {
+      accentChoice = btn.dataset.accent;
+      safeSetItem('vp_accent', accentChoice);
+    }
+    applyTheme();
+    updateThemeSwatches();
+  };
+});
+updateThemeSwatches();
+
 /* ============ saved items (separate library, outside the main feed) ============ */
 function formatSavedDate(ts){
   const d = new Date(ts);
@@ -1171,7 +1266,7 @@ function renderFeed(){
     if(idx>0){
       const div = document.createElement('div');
       div.className = 'turn-divider';
-      div.style.cssText = 'height:auto; background:#e0b06a; color:transparent; font-family:"Barlow Condensed",sans-serif; font-weight:700; font-size:3px; letter-spacing:0.5px; line-height:1; text-align:center; padding:1px 0; margin:2px 14px; border-radius:2px; user-select:none;';
+      div.style.cssText = 'height:auto; background:var(--accent-bright); color:transparent; font-family:"Barlow Condensed",sans-serif; font-weight:700; font-size:3px; letter-spacing:0.5px; line-height:1; text-align:center; padding:1px 0; margin:2px 14px; border-radius:2px; user-select:none;';
       div.textContent = 'NOVA RAZMENA';
       feed.appendChild(div);
     }

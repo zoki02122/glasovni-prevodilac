@@ -520,6 +520,18 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="exitOverlay" style="display:none;">
+  <div class="modal" style="text-align:center;">
+    <div style="font-size:56px; line-height:1; margin-bottom:8px;">🚪</div>
+    <h2>Izlazak iz aplikacije</h2>
+    <p style="color:var(--text-dim); font-size:15px;">Da li sigurno želite da izađete?</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" style="flex:1;" id="exitStayBtn">↩️ Ostani</button>
+      <button class="btn btn-primary" style="flex:1; background:linear-gradient(135deg,#d9634f,#8a3527); color:#fff;" id="exitLeaveBtn">🚪 Izađi</button>
+    </div>
+  </div>
+</div>
+
 <!-- Saved items -->
 <div class="modal-overlay" id="savedOverlay" style="display:none;">
   <div class="modal">
@@ -694,6 +706,7 @@ const importSavedBtn = document.getElementById('importSavedBtn');
 const importSavedFile = document.getElementById('importSavedFile');
 
 const confirmOverlay = document.getElementById('confirmOverlay');
+const exitOverlay = document.getElementById('exitOverlay');
 const confirmTitle = document.getElementById('confirmTitle');
 const confirmBody = document.getElementById('confirmBody');
 const confirmCancel = document.getElementById('confirmCancel');
@@ -793,6 +806,7 @@ function closeModal(overlayEl){
 }
 window.addEventListener('popstate', ()=>{
   if(suppressNextGlobalPopstate){ suppressNextGlobalPopstate = false; return; }
+  if(exitConfirmed){ return; }
   if(savedDetailOverlay.style.display === 'flex'){
     savedDetailOverlay.style.display = 'none';
     return;
@@ -808,9 +822,41 @@ window.addEventListener('popstate', ()=>{
     savedOverlay.style.display = 'none';
     return;
   }
-  if(settingsOverlay.style.display === 'flex'){ persistSettingsFields(); }
-  settingsOverlay.style.display = 'none';
+  if(settingsOverlay.style.display === 'flex'){
+    persistSettingsFields();
+    settingsOverlay.style.display = 'none';
+    return;
+  }
+  exitTrapArmed = false;
+  exitOverlay.style.display = 'flex';
 });
+
+/* ============ exit confirmation ============ */
+let exitTrapArmed = false;
+let exitConfirmed = false;
+function armExitTrap(){
+  if(!exitTrapArmed){
+    history.pushState({ exitTrap:true }, '');
+    exitTrapArmed = true;
+  }
+}
+document.addEventListener('pointerdown', function onceP(){
+  armExitTrap();
+  document.removeEventListener('pointerdown', onceP);
+}, {once:true});
+document.addEventListener('keydown', function onceK(){
+  armExitTrap();
+  document.removeEventListener('keydown', onceK);
+}, {once:true});
+document.getElementById('exitStayBtn').onclick = ()=>{
+  exitOverlay.style.display = 'none';
+  armExitTrap();
+};
+document.getElementById('exitLeaveBtn').onclick = ()=>{
+  exitOverlay.style.display = 'none';
+  exitConfirmed = true;
+  history.back();
+};
 
 /* ============ accordion ============ */
 function closeAllAccordionSections(){

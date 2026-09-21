@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
 <title>Glasovni prevodilac</title>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#15161a">
+<meta name="theme-color" content="#0c0d10">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -16,10 +16,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg: #15161a;
+    --bg: #0c0d10;
     --bg-raised: #1d1f24;
-    --bg-card: #202226;
-    --border: #2c2e34;
+    --bg-card: #1e2024;
+    --border: #34363c;
     --text: #e9e8e4;
     --text-dim: #9a9a9f;
     --accent: #c9974a;
@@ -49,7 +49,8 @@
   *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body{
     margin:0; padding:0; height:100%;
-    background: var(--bg); color: var(--text);
+    background: radial-gradient(ellipse 900px 500px at 50% -60px, rgba(255,255,255,0.05), transparent 70%), var(--bg);
+    color: var(--text);
     font-family: 'Barlow', sans-serif;
     overscroll-behavior-y: contain;
   }
@@ -175,7 +176,11 @@
     background:var(--accent-bright);
     margin: 16px 14px; border-radius:6px;
   }
-  .turn-pair{ display:flex; flex-direction:column; gap:2px; padding: 0 0; }
+  .turn-pair{
+    display:flex; flex-direction:column; gap:2px;
+    margin: 0 10px 12px;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.4);
+  }
 
   .current-panel{
     position: absolute; top:0; bottom:140px; left:50%; transform: translateX(-50%);
@@ -202,7 +207,8 @@
   }
   .current-panel .cp-text:last-child{ margin-bottom:0; }
   .card{
-    width:100%; padding: 14px 18px; background: var(--bg-card);
+    width:100%; padding: 14px 18px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0) 55%), var(--bg-card);
     border-top:1px solid var(--border); border-bottom:1px solid var(--border);
   }
   .card-label{
@@ -1553,13 +1559,6 @@ function renderFeed(){
     return;
   }
   chatHistory.forEach((turn, idx)=>{
-    if(idx>0){
-      const div = document.createElement('div');
-      div.className = 'turn-divider';
-      div.style.cssText = 'height:auto; background:var(--accent-bright); color:transparent; font-family:"Barlow Condensed",sans-serif; font-weight:700; font-size:3px; letter-spacing:0.5px; line-height:1; text-align:center; padding:1px 0; margin:2px 14px; border-radius:2px; user-select:none;';
-      div.textContent = 'NOVA RAZMENA';
-      feed.appendChild(div);
-    }
     feed.appendChild(buildTurnPair(turn, idx));
   });
   feed.scrollTop = feed.scrollHeight;

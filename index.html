@@ -139,6 +139,25 @@
   .send-btn svg{ width:34px; height:34px; }
   .send-btn:disabled{ opacity:0.4; }
 
+  /* ---------- backup reminder bar ---------- */
+  .backup-bar{
+    flex:none; display:none; align-items:center; gap:8px;
+    padding:8px 12px; background: var(--bg-raised);
+    border-bottom:2px solid var(--accent-bright);
+    color: var(--text); font-size:14px; line-height:1.25;
+  }
+  .backup-bar-text{ flex:1; min-width:0; }
+  .backup-bar-btn{
+    flex:none; border:none; border-radius:999px; padding:8px 14px; cursor:pointer;
+    background: linear-gradient(135deg, var(--accent-bright), var(--accent-dim));
+    color: var(--accent-text); font-family:'Barlow', sans-serif; font-weight:600; font-size:14px;
+  }
+  .backup-bar-close{
+    flex:none; width:32px; height:32px; padding:0; border-radius:50%; cursor:pointer;
+    background:none; border:1px solid var(--border); color: var(--text-dim);
+    font-size:16px; line-height:1;
+  }
+
   /* ---------- feed ---------- */
   #feedWrap{ position:relative; flex:1; overflow:hidden; display:flex; flex-direction:column; }
   main{
@@ -330,7 +349,7 @@
 
   <header>
     <div class="header-row1">
-      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v73</span></h1>
+      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v74</span></h1>
       <div class="header-actions">
         <button class="gear-btn" id="muteBtn" aria-label="Isključi zvuk">🔊</button>
         <button class="gear-btn" id="openSavedBtn" aria-label="Sačuvano">⭐</button>
@@ -340,6 +359,12 @@
     </div>
     <div class="lang-row" id="langRow"></div>
   </header>
+
+  <div class="backup-bar" id="backupBar">
+    <span class="backup-bar-text" id="backupBarText"></span>
+    <button class="backup-bar-btn" id="backupBarNowBtn">Napravi bekap</button>
+    <button class="backup-bar-close" id="backupBarLaterBtn" aria-label="Podseti me sutra">✕</button>
+  </div>
 
   <div id="feedWrap">
     <div id="currentPanel" class="current-panel" style="display:none;">
@@ -359,7 +384,7 @@
     <div class="mic-row">
       <button class="side-toggle active" id="dirMine">Ja<br>govorim</button>
       <div class="input-wrap">
-        <textarea id="voiceInput" name="voice-transcript-field" placeholder="Dodirni, pa koristi mikrofon tastature" autocomplete="off" rows="1"></textarea>
+        <textarea id="voiceInput" name="voice-transcript-field" placeholder="Dodirni, pa koristi mikrofon tastature" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" rows="1"></textarea>
       </div>
       <button class="send-btn" id="sendBtn" aria-label="Pošalji">
         <svg viewBox="0 0 24 24" fill="none" style="stroke:var(--accent-text);" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -450,7 +475,7 @@
         <div class="field-hint" style="margin:12px 0 8px;">Dodaj novi jezik sa liste:</div>
         <div class="field">
           <label>🔍 Pretraži jezik</label>
-          <input type="text" id="langSearchInput" placeholder="Ukucaj naziv jezika..." autocomplete="off">
+          <input type="text" id="langSearchInput" placeholder="Ukucaj naziv jezika..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
         </div>
         <div class="field">
           <label>Jezik</label>
@@ -460,11 +485,11 @@
         <div id="manualLangFields" style="display:none;">
           <div class="field">
             <label>Naziv jezika</label>
-            <input type="text" id="newLangLabel" placeholder="Naziv">
+            <input type="text" id="newLangLabel" placeholder="Naziv" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
           </div>
           <div class="field">
             <label>Jezički kod (BCP-47, npr. el-GR)</label>
-            <input type="text" id="newLangCode" placeholder="npr. el-GR (upiši svoj kod)">
+            <input type="text" id="newLangCode" placeholder="npr. el-GR (upiši svoj kod)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
             <div class="field-hint">Primeri: el-GR grčki, es-ES španski, it-IT italijanski, de-DE nemački.</div>
           </div>
         </div>
@@ -491,14 +516,29 @@
     </div>
 
     <div class="accordion-item">
+      <button class="accordion-header" data-target="secBackup">
+        <span>Bekap podataka</span><span class="accordion-arrow">▾</span>
+      </button>
+      <div class="accordion-body" id="secBackup">
+        <div class="field-hint" style="margin:0 0 10px;">Podaci se čuvaju samo u ovom pregledaču. Ako se u Chrome-u obrišu podaci sajta, nestaju zauvek — zato povremeno izvezi bekap.</div>
+        <div class="field-hint" id="lastBackupInfo" style="margin:0 0 12px; color:var(--text); font-size:14px;"></div>
+        <button class="btn btn-ghost" style="width:100%; margin-bottom:10px;" id="exportBackupBtn">⬇ Izvezi bekap (.json)</button>
+        <button class="btn btn-ghost" style="width:100%; margin-bottom:14px;" id="importBackupBtn">⬆ Uvezi bekap (.json)</button>
+        <input type="file" id="importBackupFile" accept="application/json,.json" style="display:none;">
+        <div class="field-hint" id="backupResult" style="margin:-4px 0 14px; font-size:14px; display:none;"></div>
+        <div class="field">
+          <label>Podseti me na svakih (dana)</label>
+          <input type="text" id="backupDaysInput" inputmode="numeric" pattern="[0-9]*" maxlength="3" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="7">
+        </div>
+        <div class="field-hint">Bekap sadrži Sačuvano, istoriju, jezike i podešavanja. API ključ nije uključen — ostaje samo na telefonu.</div>
+      </div>
+    </div>
+
+    <div class="accordion-item">
       <button class="accordion-header" data-target="secHistory">
         <span>Istorija razgovora <span class="accordion-count" id="historyCount"></span></span><span class="accordion-arrow">▾</span>
       </button>
       <div class="accordion-body" id="secHistory">
-        <div class="field-hint" style="margin-bottom:8px;">Rezervna kopija Sačuvanog (⭐):</div>
-        <button class="btn btn-ghost" style="width:100%; margin-bottom:10px;" id="exportSavedBtn">⬇ Izvezi sačuvano (.json)</button>
-        <button class="btn btn-ghost" style="width:100%; margin-bottom:10px;" id="importSavedBtn">⬆ Uvezi sačuvano (.json)</button>
-        <input type="file" id="importSavedFile" accept="application/json" style="display:none;">
         <button class="btn btn-ghost" style="width:100%; color:var(--danger); border-color:var(--danger);" id="clearHistoryBtn">Obriši istoriju razgovora</button>
       </div>
     </div>
@@ -541,7 +581,7 @@
       <button class="modal-close" id="savedXBtn" aria-label="Zatvori">✕</button>
     </div>
     <div class="field" id="savedSearchField">
-      <input type="text" id="savedSearchInput" placeholder="Pretraži sačuvano..." autocomplete="off">
+      <input type="text" id="savedSearchInput" placeholder="Pretraži sačuvano..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
     </div>
     <div class="selection-bar" id="savedSelectionBar" style="display:none;">
       <button class="btn btn-ghost" id="selCancelBtn">✕ Otkaži</button>
@@ -636,15 +676,39 @@ let theme = safeGetItem('vp_theme') || 'dark';
 let accentChoice = safeGetItem('vp_accent') || '';
 applyTheme();
 
-let langs = JSON.parse(safeGetItem('vp_languages') || 'null') || DEFAULT_LANGS;
+/* pročitaj JSON iz localStorage; ako je oštećen, vrati podrazumevanu vrednost umesto da cela aplikacija pukne */
+function safeParse(key, fallback){
+  try{
+    const raw = safeGetItem(key);
+    if(raw === null) return fallback;
+    const v = JSON.parse(raw);
+    return (v === null || v === undefined) ? fallback : v;
+  }catch(e){ return fallback; }
+}
+function normLang(l){
+  return (l && typeof l.label === 'string' && l.label && typeof l.code === 'string' && l.code) ? { label:l.label, code:l.code } : null;
+}
+let langs = (function(){
+  const a = safeParse('vp_languages', null);
+  const ok = Array.isArray(a) ? a.map(normLang).filter(Boolean) : [];
+  return ok.length ? ok : DEFAULT_LANGS.map(l=>({ label:l.label, code:l.code }));
+})();
 let selectedLangCode = safeGetItem('vp_selectedLangCode') || (DEFAULT_LANGS[0] && DEFAULT_LANGS[0].code);
-let direction = safeGetItem('vp_direction') || 'mine'; // 'mine' | 'guest'
-let chatHistory = JSON.parse(safeGetItem('vp_history') || '[]');
-let savedItems = JSON.parse(safeGetItem('vp_saved') || '[]');
+let direction = safeGetItem('vp_direction') === 'guest' ? 'guest' : 'mine'; // 'mine' | 'guest'
+let chatHistory = (function(){ const a = safeParse('vp_history', []); return Array.isArray(a) ? a.filter(x=>x && typeof x === 'object') : []; })();
+let savedItems = (function(){ const a = safeParse('vp_saved', []); return Array.isArray(a) ? a.filter(x=>x && typeof x === 'object') : []; })();
 let apiKey = safeGetItem('vp_apikey') || '';
-let speechRate = parseFloat(safeGetItem('vp_rate') || '1');
+let speechRate = (function(){ const r = parseFloat(safeGetItem('vp_rate')); return (r >= 0.6 && r <= 1.4) ? r : 1; })();
 let muted = safeGetItem('vp_muted') === '1';
-let voicePrefs = JSON.parse(safeGetItem('vp_voice_prefs') || '{}');
+let voicePrefs = (function(){ const o = safeParse('vp_voice_prefs', {}); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; })();
+
+/* stanje bekapa i podsetnika */
+const DAY_MS = 86400000;
+let backupDays = (function(){ const n = parseInt(safeGetItem('vp_backup_days'), 10); return (n >= 1 && n <= 365) ? n : 7; })();
+let lastBackupTs = parseInt(safeGetItem('vp_last_backup'), 10) || 0;
+let backupBaselineTs = parseInt(safeGetItem('vp_backup_baseline'), 10) || 0;
+if(!backupBaselineTs){ backupBaselineTs = Date.now(); safeSetItem('vp_backup_baseline', String(backupBaselineTs)); }
+let backupSnoozeUntil = parseInt(safeGetItem('vp_backup_snooze'), 10) || 0;
 
 let recState = 'idle'; // 'idle' | 'processing'
 
@@ -702,9 +766,16 @@ const clearHistoryBtn = document.getElementById('clearHistoryBtn');
 const voiceLangSelect = document.getElementById('voiceLangSelect');
 const voiceSelect = document.getElementById('voiceSelect');
 const testVoiceBtn = document.getElementById('testVoiceBtn');
-const exportSavedBtn = document.getElementById('exportSavedBtn');
-const importSavedBtn = document.getElementById('importSavedBtn');
-const importSavedFile = document.getElementById('importSavedFile');
+const exportBackupBtn = document.getElementById('exportBackupBtn');
+const importBackupBtn = document.getElementById('importBackupBtn');
+const importBackupFile = document.getElementById('importBackupFile');
+const backupDaysInput = document.getElementById('backupDaysInput');
+const lastBackupInfo = document.getElementById('lastBackupInfo');
+const backupResult = document.getElementById('backupResult');
+const backupBar = document.getElementById('backupBar');
+const backupBarText = document.getElementById('backupBarText');
+const backupBarNowBtn = document.getElementById('backupBarNowBtn');
+const backupBarLaterBtn = document.getElementById('backupBarLaterBtn');
 
 const confirmOverlay = document.getElementById('confirmOverlay');
 const exitOverlay = document.getElementById('exitOverlay');
@@ -712,6 +783,14 @@ const confirmTitle = document.getElementById('confirmTitle');
 const confirmBody = document.getElementById('confirmBody');
 const confirmCancel = document.getElementById('confirmCancel');
 const confirmOk = document.getElementById('confirmOk');
+
+/* ============ status line above the input ============ */
+let statusTimer = null;
+function showStatus(msg, ms){
+  clearTimeout(statusTimer);
+  micStatus.textContent = msg;
+  if(ms){ statusTimer = setTimeout(()=>{ micStatus.textContent = ''; }, ms); }
+}
 
 /* ============ persistence ============ */
 function saveLangs(){ safeSetItem('vp_languages', JSON.stringify(langs)); }
@@ -808,6 +887,7 @@ function closeModal(overlayEl){
 window.addEventListener('popstate', ()=>{
   if(suppressNextGlobalPopstate){ suppressNextGlobalPopstate = false; return; }
   if(exitConfirmed){ return; }
+  if(confirmOverlay.style.display === 'flex'){ return; } // dijalog za potvrdu sam obrađuje Back, ostalo ne dirati
   if(savedDetailOverlay.style.display === 'flex'){
     savedDetailOverlay.style.display = 'none';
     return;
@@ -884,6 +964,9 @@ function openSettings(){
   toggleApiKeyBtn.textContent = '👁';
   rateSlider.value = speechRate;
   updateRateValueLabel();
+  backupDaysInput.value = String(backupDays);
+  backupResult.style.display = 'none';
+  updateBackupInfo();
   renderLangList();
   langSearchInput.value = '';
   renderLangSelect();
@@ -909,6 +992,7 @@ function persistSettingsFields(){
   safeSetItem('vp_apikey', apiKey);
   speechRate = parseFloat(rateSlider.value);
   safeSetItem('vp_rate', String(speechRate));
+  persistBackupDays();
   renderLangRow();
 }
 function closeSettings(){
@@ -1012,50 +1096,207 @@ async function clearHistory(){
 }
 clearHistoryBtn.onclick = clearHistory;
 
-exportSavedBtn.onclick = ()=>{
-  const blob = new Blob([JSON.stringify(savedItems, null, 2)], { type:'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  const stamp = new Date().toISOString().slice(0,10);
-  a.href = url;
-  a.download = `glasovni-prevodilac-sacuvano-${stamp}.json`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-};
+/* ============ backup: export / import / reminder ============ */
+function pad2(n){ return String(n).padStart(2, '0'); }
+function localDateStamp(d){ return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
+function formatBackupDate(ts){
+  const d = new Date(ts);
+  return d.toLocaleDateString('sr-RS', { day:'2-digit', month:'2-digit', year:'numeric' }) + ' ' +
+         d.toLocaleTimeString('sr-RS', { hour:'2-digit', minute:'2-digit' });
+}
+function daysWord(n){ return (n % 10 === 1 && n % 100 !== 11) ? 'dan' : 'dana'; }
 
-importSavedBtn.onclick = ()=> importSavedFile.click();
-importSavedFile.addEventListener('change', ()=>{
-  const file = importSavedFile.files[0];
-  importSavedFile.value = '';
+function updateBackupInfo(){
+  lastBackupInfo.textContent = lastBackupTs ? `Poslednji bekap: ${formatBackupDate(lastBackupTs)}` : 'Bekap još nikad nije pravljen.';
+}
+function updateBackupBar(){
+  const now = Date.now();
+  const ref = lastBackupTs || backupBaselineTs;
+  const due = (now - ref) >= backupDays * DAY_MS;
+  if(!due || now < backupSnoozeUntil){ backupBar.style.display = 'none'; return; }
+  if(lastBackupTs){
+    const n = Math.floor((now - lastBackupTs) / DAY_MS);
+    backupBarText.textContent = `⚠ Bez bekapa ${n} ${daysWord(n)}`;
+  } else {
+    backupBarText.textContent = '⚠ Bekap još nikad nije pravljen';
+  }
+  backupBar.style.display = 'flex';
+}
+function persistBackupDays(){
+  const n = parseInt(backupDaysInput.value, 10);
+  if(n >= 1 && n <= 365){ backupDays = n; }
+  backupDaysInput.value = String(backupDays);
+  safeSetItem('vp_backup_days', String(backupDays));
+  updateBackupBar();
+}
+backupDaysInput.addEventListener('change', persistBackupDays);
+
+function buildBackup(){
+  return {
+    app: 'glasovni-prevodilac', format: 1, exportedAt: Date.now(),
+    saved: savedItems, history: chatHistory, languages: langs,
+    settings: { selectedLangCode, direction, theme, accent: accentChoice, rate: speechRate, muted, voicePrefs, backupDays }
+  };
+}
+function exportBackup(){
+  try{
+    const blob = new Blob([JSON.stringify(buildBackup(), null, 2)], { type:'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `glasovni-prevodilac-bekap-${localDateStamp(new Date())}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=> URL.revokeObjectURL(url), 10000);
+  }catch(e){
+    console.error(e);
+    showStatus('Bekap nije uspeo — probaj ponovo.', 4000);
+    return;
+  }
+  lastBackupTs = Date.now();
+  backupSnoozeUntil = 0;
+  safeSetItem('vp_last_backup', String(lastBackupTs));
+  safeSetItem('vp_backup_snooze', '0');
+  updateBackupInfo();
+  updateBackupBar();
+  showStatus('Bekap izvezen ✓', 3000);
+}
+exportBackupBtn.onclick = exportBackup;
+backupBarNowBtn.onclick = exportBackup;
+backupBarLaterBtn.onclick = ()=>{
+  backupSnoozeUntil = Date.now() + DAY_MS;
+  safeSetItem('vp_backup_snooze', String(backupSnoozeUntil));
+  updateBackupBar();
+};
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) updateBackupBar(); });
+
+function normSavedItem(it){
+  if(!it || typeof it !== 'object') return null;
+  if(typeof it.id !== 'string' || !it.id) return null;
+  if(typeof it.cleanedText !== 'string' || typeof it.translatedText !== 'string') return null;
+  return {
+    id: it.id,
+    name: (typeof it.name === 'string' && it.name) ? it.name : it.cleanedText.slice(0, 40),
+    direction: it.direction === 'guest' ? 'guest' : 'mine',
+    sourceLangLabel: String(it.sourceLangLabel || ''),
+    targetLangLabel: String(it.targetLangLabel || ''),
+    targetLangCode: String(it.targetLangCode || ''),
+    cleanedText: it.cleanedText,
+    translatedText: it.translatedText,
+    pinned: !!it.pinned,
+    savedAt: Number.isFinite(it.savedAt) ? it.savedAt : Date.now()
+  };
+}
+function normTurn(t){
+  if(!t || typeof t !== 'object') return null;
+  if(typeof t.cleanedText !== 'string' || typeof t.translatedText !== 'string') return null;
+  return {
+    direction: t.direction === 'guest' ? 'guest' : 'mine',
+    sourceLangLabel: String(t.sourceLangLabel || ''),
+    targetLangLabel: String(t.targetLangLabel || ''),
+    targetLangCode: String(t.targetLangCode || ''),
+    cleanedText: t.cleanedText,
+    translatedText: t.translatedText,
+    ts: Number.isFinite(t.ts) ? t.ts : Date.now()
+  };
+}
+
+/* prepoznaje novi bekap (objekat) i stari izvoz "samo Sačuvano" (niz); vraća null ako oblik nije prepoznat */
+function parseBackup(data){
+  if(Array.isArray(data)){
+    return { saved: data, history: [], languages: [], settings: null };
+  }
+  if(data && typeof data === 'object' && data.app === 'glasovni-prevodilac'){
+    return {
+      saved: Array.isArray(data.saved) ? data.saved : [],
+      history: Array.isArray(data.history) ? data.history : [],
+      languages: Array.isArray(data.languages) ? data.languages : [],
+      settings: (data.settings && typeof data.settings === 'object') ? data.settings : null
+    };
+  }
+  return null;
+}
+
+function applyBackup(b){
+  const added = { saved:0, history:0, langs:0, settings:false };
+
+  const ids = new Set(savedItems.map(x=>x.id));
+  b.saved.forEach(raw=>{
+    const it = normSavedItem(raw);
+    if(it && !ids.has(it.id)){ savedItems.push(it); ids.add(it.id); added.saved++; }
+  });
+
+  const keys = new Set(chatHistory.map(t=>t.ts + '|' + t.cleanedText));
+  b.history.forEach(raw=>{
+    const t = normTurn(raw);
+    if(!t) return;
+    const k = t.ts + '|' + t.cleanedText;
+    if(!keys.has(k)){ chatHistory.push(t); keys.add(k); added.history++; }
+  });
+  chatHistory.sort((x, y)=> (x.ts || 0) - (y.ts || 0));
+
+  b.languages.forEach(raw=>{
+    const l = normLang(raw);
+    if(l && !langs.some(x=>x.code.toLowerCase() === l.code.toLowerCase())){ langs.push(l); added.langs++; }
+  });
+
+  const st = b.settings;
+  if(st){
+    added.settings = true;
+    if(st.theme === 'dark' || st.theme === 'light'){ theme = st.theme; safeSetItem('vp_theme', theme); }
+    if(st.accent === '' || st.accent === 'blue' || st.accent === 'green'){ accentChoice = st.accent; safeSetItem('vp_accent', accentChoice); }
+    const r = Number(st.rate);
+    if(r >= 0.6 && r <= 1.4){ speechRate = r; safeSetItem('vp_rate', String(r)); }
+    if(typeof st.muted === 'boolean'){ muted = st.muted; safeSetItem('vp_muted', muted ? '1' : '0'); }
+    if(st.voicePrefs && typeof st.voicePrefs === 'object' && !Array.isArray(st.voicePrefs)){
+      Object.keys(st.voicePrefs).forEach(k=>{ if(typeof st.voicePrefs[k] === 'string'){ voicePrefs[k] = st.voicePrefs[k]; } });
+      safeSetItem('vp_voice_prefs', JSON.stringify(voicePrefs));
+    }
+    const bd = parseInt(st.backupDays, 10);
+    if(bd >= 1 && bd <= 365){ backupDays = bd; safeSetItem('vp_backup_days', String(bd)); }
+    if(typeof st.selectedLangCode === 'string' && langs.some(l=>l.code === st.selectedLangCode)){ selectedLangCode = st.selectedLangCode; saveSelected(); }
+    if(st.direction === 'mine' || st.direction === 'guest'){ direction = st.direction; saveDirection(); }
+  }
+
+  saveSavedItems(); saveHistory(); saveLangs();
+
+  // osveži ekran (polja u otvorenim Podešavanjima moraju da prikažu vraćene vrednosti, inače bi ih zatvaranje prepisalo starim)
+  applyTheme(); updateThemeSwatches(); updateMuteBtn();
+  rateSlider.value = speechRate; updateRateValueLabel();
+  backupDaysInput.value = String(backupDays);
+  renderLangRow(); renderDirection();
+  renderLangList(); renderLangSelect(); renderVoiceLangSelect();
+  renderFeed(); updateAccordionCounts(); updateBackupBar();
+  return added;
+}
+
+function showBackupResult(msg, isError){
+  backupResult.textContent = msg;
+  backupResult.style.color = isError ? 'var(--danger)' : 'var(--accent)';
+  backupResult.style.display = 'block';
+}
+importBackupBtn.onclick = ()=> importBackupFile.click();
+importBackupFile.addEventListener('change', ()=>{
+  const file = importBackupFile.files[0];
+  importBackupFile.value = '';
   if(!file) return;
   const reader = new FileReader();
+  reader.onerror = ()=> showBackupResult('Fajl nije moguće pročitati.', true);
   reader.onload = async ()=>{
-    let incoming;
-    try{ incoming = JSON.parse(reader.result); }
-    catch(e){
-      micStatus.textContent = 'Fajl nije ispravan JSON.';
-      setTimeout(()=>{ micStatus.textContent=''; }, 4000);
-      return;
-    }
-    if(!Array.isArray(incoming)){
-      micStatus.textContent = 'Fajl nema očekivan oblik.';
-      setTimeout(()=>{ micStatus.textContent=''; }, 4000);
-      return;
-    }
-    const existingIds = new Set(savedItems.map(it=>it.id));
-    let addedCount = 0;
-    incoming.forEach(it=>{
-      if(it && it.id && !existingIds.has(it.id)){
-        savedItems.push(it);
-        existingIds.add(it.id);
-        addedCount++;
-      }
-    });
-    saveSavedItems();
-    updateAccordionCounts();
-    const ok = await customConfirm('Uvezeno', `Dodato ${addedCount} novih stavki u Sačuvano (preskočeni duplikati).`, 'U redu', false);
+    let data;
+    try{ data = JSON.parse(reader.result); }
+    catch(e){ showBackupResult('Fajl nije ispravan JSON.', true); return; }
+    const parsed = parseBackup(data);
+    if(!parsed){ showBackupResult('Ovo nije bekap ove aplikacije.', true); return; }
+    const msg = parsed.settings
+      ? 'Sačuvano, istorija i jezici iz fajla se dodaju (bez duplikata). Podešavanja izgleda i glasa iz fajla zamenjuju trenutna.'
+      : 'Stavke iz fajla se dodaju u Sačuvano (bez duplikata).';
+    const ok = await customConfirm('Uvesti bekap?', msg, 'Uvezi', false);
+    if(!ok) return;
+    const added = applyBackup(parsed);
+    const parts = [`${added.saved} u Sačuvano`, `${added.history} razmena u istoriju`, `${added.langs} jezika`];
+    showBackupResult('Uvezeno: ' + parts.join(', ') + (added.settings ? '. Podešavanja vraćena.' : '.'), false);
   };
   reader.readAsText(file);
 });
@@ -1222,6 +1463,8 @@ function openSavedDetail(itemId){
     input.type = 'text';
     input.value = item.name;
     input.className = 'saved-rename-input';
+    input.setAttribute('autocomplete','off'); input.setAttribute('autocorrect','off');
+    input.setAttribute('autocapitalize','off'); input.setAttribute('spellcheck','false');
     titleEl.replaceWith(input);
     input.focus();
     input.select();
@@ -1354,8 +1597,7 @@ function buildTurnPair(turn, idx){
     saveHistory();
     renderFeed();
     updateAccordionCounts();
-    micStatus.textContent = 'Sačuvano ⭐';
-    setTimeout(()=>{ if(recState==='idle') micStatus.textContent=''; }, 1800);
+    showStatus('Sačuvano ⭐', 1800);
   };
   c1.querySelector('.edit-btn').onclick = ()=> startCorrection(c1, idx);
 
@@ -1374,7 +1616,7 @@ function startCorrection(cardEl, idx){
   if(!turn) return;
   cardEl.innerHTML = `
     <div class="card-label">Ispravi tekst</div>
-    <textarea id="correctionText" class="correction-textarea">${escapeHtml(turn.cleanedText)}</textarea>
+    <textarea id="correctionText" class="correction-textarea" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">${escapeHtml(turn.cleanedText)}</textarea>
     <div class="review-actions">
       <button class="btn btn-ghost" id="correctionCancel">Otkaži</button>
       <button class="btn btn-primary" id="correctionSave">Sačuvaj i prevedi ponovo</button>
@@ -1385,8 +1627,7 @@ function startCorrection(cardEl, idx){
     const newText = cardEl.querySelector('#correctionText').value.trim();
     if(!newText) return;
     if(!navigator.onLine){
-      micStatus.textContent = 'Nema internet konekcije.';
-      setTimeout(()=>{ micStatus.textContent=''; }, 3000);
+      showStatus('Nema internet konekcije.', 3000);
       return;
     }
     const saveBtn = cardEl.querySelector('#correctionSave');
@@ -1405,8 +1646,7 @@ function startCorrection(cardEl, idx){
       console.error(err);
       saveBtn.textContent = 'Sačuvaj i prevedi ponovo';
       saveBtn.disabled = false;
-      micStatus.textContent = friendlyErrorMessage(err);
-      setTimeout(()=>{ micStatus.textContent=''; }, 4000);
+      showStatus(friendlyErrorMessage(err), 4000);
     }
   };
 }
@@ -1438,13 +1678,12 @@ async function submitVoiceInput(){
   if(!transcript) return;
 
   if(!apiKey){
-    micStatus.textContent = 'Nedostaje Gemini API ključ — dodaj ga u podešavanjima (⚙).';
+    showStatus('Nedostaje Gemini API ključ — dodaj ga u podešavanjima (⚙).', 5000);
     openSettings();
     return;
   }
   if(!navigator.onLine){
-    micStatus.textContent = 'Nema internet konekcije.';
-    setTimeout(()=>{ micStatus.textContent=''; }, 3000);
+    showStatus('Nema internet konekcije.', 3000);
     return;
   }
 
@@ -1453,7 +1692,8 @@ async function submitVoiceInput(){
   sendBtn.disabled = true;
   voiceInput.disabled = true;
   setControlsDisabled(true);
-  micStatus.textContent = 'Obrađujem...';
+  showStatus('Obrađujem...');
+  let succeeded = false;
   try{
     const sourceLangLabel = getSpokenLangLabel();
     const target = getTargetLang();
@@ -1473,16 +1713,16 @@ async function submitVoiceInput(){
     renderFeed();
     showCurrentPanel(turn);
     speak(turn.translatedText, turn.targetLangCode);
+    succeeded = true;
   }catch(err){
     console.error(err);
-    micStatus.textContent = friendlyErrorMessage(err);
-    setTimeout(()=>{ micStatus.textContent=''; }, 4000);
+    showStatus(friendlyErrorMessage(err), 4000);
   }finally{
     recState = 'idle';
     sendBtn.disabled = false;
     voiceInput.disabled = false;
     setControlsDisabled(false);
-    if(!micStatus.textContent.startsWith('Greška')) micStatus.textContent = '';
+    if(succeeded) showStatus('');
   }
 }
 
@@ -1541,7 +1781,9 @@ JSON: {"cleaned":"...","translation":"..."}`;
   let parsed;
   try{ parsed = JSON.parse(raw); }
   catch(e){ throw new Error('Model nije vratio ispravan JSON.'); }
-  return { cleaned: parsed.cleaned || rawText, translation: parsed.translation || '' };
+  const translation = (parsed && typeof parsed.translation === 'string') ? parsed.translation.trim() : '';
+  if(!translation) throw new Error('Model nije vratio prevod.');
+  return { cleaned: (typeof parsed.cleaned === 'string' && parsed.cleaned) ? parsed.cleaned : rawText, translation };
 }
 
 /* ============ text to speech ============ */
@@ -1617,6 +1859,7 @@ if(window.speechSynthesis){ window.speechSynthesis.getVoices(); }
 renderLangRow();
 renderDirection();
 renderFeed();
+updateBackupBar();
 
 /* ============ actively remove any previously installed service worker ============ */
 /* (it was causing stale versions to load even after clearing Chrome's cache) */

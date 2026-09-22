@@ -356,7 +356,7 @@
 
   <header>
     <div class="header-row1">
-      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v76</span></h1>
+      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v77</span></h1>
       <div class="header-actions">
         <button class="gear-btn" id="muteBtn" aria-label="Isključi zvuk">🔊</button>
         <button class="gear-btn" id="openSavedBtn" aria-label="Sačuvano">⭐</button>
@@ -1720,10 +1720,12 @@ async function submitVoiceInput(){
   setControlsDisabled(true);
   showStatus('Obrađujem...');
   let succeeded = false;
+  const _t0 = performance.now(); // PRIVREMENO: mereno radi dijagnostike sporog odziva
   try{
     const sourceLangLabel = getSpokenLangLabel();
     const target = getTargetLang();
     const result = await cleanAndTranslateText(transcript, sourceLangLabel, target);
+    const _elapsed = ((performance.now() - _t0) / 1000).toFixed(1); // PRIVREMENO
     voiceInput.value = '';
     const turn = {
       direction,
@@ -1740,15 +1742,16 @@ async function submitVoiceInput(){
     showCurrentPanel(turn);
     speak(turn.translatedText, turn.targetLangCode);
     succeeded = true;
+    showStatus(`Obrađeno za ${_elapsed}s`, 3000); // PRIVREMENO
   }catch(err){
+    const _elapsed = ((performance.now() - _t0) / 1000).toFixed(1); // PRIVREMENO
     console.error(err);
-    showStatus(friendlyErrorMessage(err), 4000);
+    showStatus(`${friendlyErrorMessage(err)} (${_elapsed}s)`, 5000); // PRIVREMENO: dodato trajanje
   }finally{
     recState = 'idle';
     sendBtn.disabled = false;
     voiceInput.disabled = false;
     setControlsDisabled(false);
-    if(succeeded) showStatus('');
   }
 }
 

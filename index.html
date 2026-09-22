@@ -356,7 +356,7 @@
 
   <header>
     <div class="header-row1">
-      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v79</span></h1>
+      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v80</span></h1>
       <div class="header-actions">
         <button class="gear-btn" id="muteBtn" aria-label="Isključi zvuk">🔊</button>
         <button class="gear-btn" id="openSavedBtn" aria-label="Sačuvano">⭐</button>
@@ -1746,7 +1746,7 @@ async function submitVoiceInput(){
   }catch(err){
     const _elapsed = ((performance.now() - _t0) / 1000).toFixed(1); // PRIVREMENO
     console.error(err);
-    showStatus(`${friendlyErrorMessage(err)} (${_elapsed}s)`, 5000); // PRIVREMENO: dodato trajanje
+    showStatus(`SIROVA GREŠKA: ${err.message} (${_elapsed}s)`, 8000); // PRIVREMENO: dijagnostika
   }finally{
     recState = 'idle';
     sendBtn.disabled = false;

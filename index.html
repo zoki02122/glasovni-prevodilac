@@ -356,7 +356,7 @@
 
   <header>
     <div class="header-row1">
-      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v78</span></h1>
+      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v79</span></h1>
       <div class="header-actions">
         <button class="gear-btn" id="muteBtn" aria-label="Isključi zvuk">🔊</button>
         <button class="gear-btn" id="openSavedBtn" aria-label="Sačuvano">⭐</button>
@@ -1786,18 +1786,20 @@ function friendlyErrorMessage(err){
 }
 
 async function cleanAndTranslateText(rawText, sourceLangLabel, target){
+  // PRIVREMENO (v79 test): običan tekstualni odgovor, bez JSON/thinking, radi izolacije uzroka kašnjenja
   const prompt = `Izvor: ${sourceLangLabel}. Cilj: ${target.label} (${target.code}).
 Tekst: """${rawText}"""
 1) Očisti (ukloni poštapalice/ponavljanja, izvuci suštinu, ne dodaji ništa novo).
 2) Prevedi očišćeno na cilj.
-JSON: {"cleaned":"...","translation":"..."}`;
+Odgovori TAČNO u ovom obliku, u dva reda, bez ičeg drugog:
+CISTO: <očišćen tekst>
+PREVOD: <prevod>`;
 
-  const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`, {
+  const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`, {
     method:'POST',
     headers:{ 'Content-Type':'application/json' },
     body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { responseMimeType: 'application/json', thinkingConfig: { thinkingLevel: 'minimal' } }
+      contents: [{ parts: [{ text: prompt }] }]
     })
   });
   if(!resp.ok){
@@ -1807,12 +1809,11 @@ JSON: {"cleaned":"...","translation":"..."}`;
   const data = await resp.json();
   const raw = data.candidates?.[0]?.content?.parts?.[0]?.text;
   if(!raw) throw new Error('Prazan odgovor od modela.');
-  let parsed;
-  try{ parsed = JSON.parse(raw); }
-  catch(e){ throw new Error('Model nije vratio ispravan JSON.'); }
-  const translation = (parsed && typeof parsed.translation === 'string') ? parsed.translation.trim() : '';
+  const cleanedMatch = raw.match(/CISTO:\s*(.+)/i);
+  const translationMatch = raw.match(/PREVOD:\s*(.+)/i);
+  const translation = translationMatch ? translationMatch[1].trim() : '';
   if(!translation) throw new Error('Model nije vratio prevod.');
-  return { cleaned: (typeof parsed.cleaned === 'string' && parsed.cleaned) ? parsed.cleaned : rawText, translation };
+  return { cleaned: cleanedMatch ? cleanedMatch[1].trim() : rawText, translation };
 }
 
 /* ============ text to speech ============ */

@@ -886,6 +886,7 @@ function openModal(overlayEl, name){
   overlayEl.style.display = 'flex';
 }
 let suppressNextGlobalPopstate = false;
+let correctingActive = false;
 function closeModal(overlayEl){
   if(history.state && history.state.modal){
     history.back(); // the popstate handler hides the right overlay based on what's actually on top
@@ -897,6 +898,11 @@ window.addEventListener('popstate', ()=>{
   if(suppressNextGlobalPopstate){ suppressNextGlobalPopstate = false; return; }
   if(exitConfirmed){ return; }
   if(confirmOverlay.style.display === 'flex'){ return; } // dijalog za potvrdu sam obrađuje Back, ostalo ne dirati
+  if(correctingActive){
+    correctingActive = false;
+    renderFeed();
+    return;
+  }
   if(savedDetailOverlay.style.display === 'flex'){
     savedDetailOverlay.style.display = 'none';
     return;
@@ -1556,6 +1562,8 @@ document.addEventListener('pointerdown', ()=>{
 }, true);
 
 function renderFeed(){
+  const micDock = document.querySelector('.mic-dock');
+  if(micDock) micDock.style.display = '';
   feed.innerHTML = '';
   if(chatHistory.length===0){
     feed.appendChild(emptyState);
@@ -1624,7 +1632,23 @@ function startCorrection(cardEl, idx){
       <button class="btn btn-primary" id="correctionSave">Sačuvaj i prevedi ponovo</button>
     </div>
   `;
-  cardEl.querySelector('#correctionCancel').onclick = ()=> renderFeed();
+  correctingActive = true;
+  history.pushState({ modal:'correction' }, '');
+  const micDock = document.querySelector('.mic-dock');
+  if(micDock) micDock.style.display = 'none';
+  const correctionTextEl = cardEl.querySelector('#correctionText');
+  correctionTextEl.focus();
+  correctionTextEl.setSelectionRange(correctionTextEl.value.length, correctionTextEl.value.length);
+  setTimeout(()=> cardEl.scrollIntoView({ behavior:'smooth', block:'start' }), 300);
+  function closeCorrection(){
+    if(history.state && history.state.modal === 'correction'){
+      history.back(); // popstate handler radi renderFeed() i vraća traku
+    } else {
+      correctingActive = false;
+      renderFeed();
+    }
+  }
+  cardEl.querySelector('#correctionCancel').onclick = closeCorrection;
   cardEl.querySelector('#correctionSave').onclick = async ()=>{
     const newText = cardEl.querySelector('#correctionText').value.trim();
     if(!newText) return;
@@ -1641,7 +1665,7 @@ function startCorrection(cardEl, idx){
       chatHistory[idx].cleanedText = result.cleaned;
       chatHistory[idx].translatedText = result.translation;
       saveHistory();
-      renderFeed();
+      closeCorrection();
       if(idx === chatHistory.length - 1){ showCurrentPanel(chatHistory[idx]); }
       speak(result.translation, turn.targetLangCode);
     }catch(err){

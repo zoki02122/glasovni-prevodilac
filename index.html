@@ -309,19 +309,38 @@
   .modal h2{ margin:0 0 14px; font-size:22px; }
   .field-error{ font-size:12.5px; color: var(--danger); margin-top:4px; display:none; }
 
-  .accordion-item{ border:1px solid var(--border); border-radius:12px; margin-bottom:10px; overflow:hidden; }
-  .accordion-header{
-    width:100%; display:flex; align-items:center; justify-content:space-between;
-    background: var(--bg-card); border:none; color: var(--text);
-    font-family:'Barlow', sans-serif; font-size:16px; font-weight:600;
-    padding:14px 16px; cursor:pointer;
+  /* ---------- podešavanja: ceo ekran sa pločicama (kao Troškovi) ---------- */
+  #settingsOverlay{ background: var(--bg); }
+  #settingsOverlay .modal{
+    position:absolute; top:0; left:0; right:0; bottom:0; transform:none;
+    width:100%; max-width:none; height:100%; max-height:none; margin:0;
+    border:none; border-radius:0; background: var(--bg);
+    padding:0 16px calc(28px + env(safe-area-inset-bottom,0px));
   }
-  .accordion-count{ color: var(--text-dim); font-weight:500; font-size:13.5px; }
-  .accordion-arrow{ color: var(--accent); transition: transform 0.2s ease; font-size:26px; line-height:1; }
-  .accordion-header.open .accordion-arrow{ transform: rotate(180deg); }
-  .accordion-body{ display:none; padding:14px 16px; background: var(--bg-raised); }
-  .accordion-body.open{ display:block; }
-  .accordion-body .field:last-child{ margin-bottom:0; }
+  #settingsOverlay .set-head{
+    position:sticky; top:0; z-index:2; display:flex; align-items:center; gap:4px;
+    margin:0 -16px 16px; padding: calc(8px + env(safe-area-inset-top,0px)) 16px 10px 6px;
+    background: var(--bg); border-bottom:1px solid var(--border);
+  }
+  #settingsOverlay .set-head h2{ margin:0; font-size:20px; }
+  .set-back{
+    width:44px; height:44px; flex:0 0 44px; background:none; border:none; cursor:pointer;
+    color: var(--text-dim); font-size:36px; line-height:1; padding:0 0 4px;
+  }
+  .set-tile{
+    width:100%; display:flex; align-items:center; gap:14px; text-align:left; cursor:pointer;
+    background: var(--bg-card); border:1px solid var(--border); border-radius:14px;
+    padding:14px; margin-bottom:10px; color: var(--text); font-family:'Barlow', sans-serif;
+  }
+  .set-tile .tile-icon{ font-size:24px; width:30px; text-align:center; flex:0 0 30px; }
+  .set-tile .tile-text{ flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+  .set-tile .tile-title{ font-size:16px; font-weight:600; }
+  .set-tile .tile-sub{ font-size:13px; color: var(--text-dim); }
+  .set-tile .tile-chev{ color: var(--text-dim); font-size:24px; line-height:1; }
+  .set-tile.danger{ margin-top:18px; }
+  .set-tile.danger .tile-title{ color: var(--danger); }
+  .set-version{ text-align:center; font-size:12.5px; color: var(--text-dim); padding-top:14px; }
+  .set-sub .field:last-child{ margin-bottom:0; }
   .field{ margin-bottom:14px; }
   .field label{ display:block; font-size:13.5px; color: var(--text-dim); margin-bottom:5px; }
   .field input, .field select{
@@ -356,7 +375,7 @@
 
   <header>
     <div class="header-row1">
-      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v84</span></h1>
+      <h1 class="title">Glasovni prevodilac</h1>
       <div class="header-actions">
         <button class="gear-btn" id="muteBtn" aria-label="Isključi zvuk">🔊</button>
         <button class="gear-btn" id="openSavedBtn" aria-label="Sačuvano">⭐</button>
@@ -410,16 +429,22 @@
 <!-- Settings modal -->
 <div class="modal-overlay" id="settingsOverlay" style="display:none;">
   <div class="modal">
-    <div class="modal-header">
-      <h2>Podešavanja</h2>
-      <button class="modal-close" id="settingsXBtn" aria-label="Zatvori">✕</button>
+    <div class="set-head">
+      <button class="set-back" id="settingsXBtn" aria-label="Nazad">‹</button>
+      <h2 id="settingsTitle">Podešavanja</h2>
     </div>
 
-    <div class="accordion-item">
-      <button class="accordion-header" data-target="secTheme">
-        <span>Izgled</span><span class="accordion-arrow">▾</span>
-      </button>
-      <div class="accordion-body" id="secTheme">
+    <div id="settingsTiles">
+      <button class="set-tile" data-sub="secTheme" data-title="Izgled"><span class="tile-icon">🎨</span><span class="tile-text"><span class="tile-title">Izgled</span><span class="tile-sub" id="tileSubTheme"></span></span><span class="tile-chev">›</span></button>
+      <button class="set-tile" data-sub="secApi" data-title="Gemini API ključ"><span class="tile-icon">🔑</span><span class="tile-text"><span class="tile-title">Gemini API ključ</span><span class="tile-sub" id="tileSubKey"></span></span><span class="tile-chev">›</span></button>
+      <button class="set-tile" data-sub="secLang" data-title="Jezici"><span class="tile-icon">🌐</span><span class="tile-text"><span class="tile-title">Jezici</span><span class="tile-sub" id="tileSubLang"></span></span><span class="tile-chev">›</span></button>
+      <button class="set-tile" data-sub="secVoices" data-title="Glas i izgovor"><span class="tile-icon">🔊</span><span class="tile-text"><span class="tile-title">Glas i izgovor</span><span class="tile-sub" id="tileSubVoice"></span></span><span class="tile-chev">›</span></button>
+      <button class="set-tile" data-sub="secBackup" data-title="Bekap podataka"><span class="tile-icon">💾</span><span class="tile-text"><span class="tile-title">Bekap podataka</span><span class="tile-sub" id="tileSubBackup"></span></span><span class="tile-chev">›</span></button>
+      <button class="set-tile danger" id="clearHistoryBtn"><span class="tile-icon">🗑</span><span class="tile-text"><span class="tile-title">Obriši istoriju razgovora</span><span class="tile-sub" id="tileSubHistory"></span></span><span class="tile-chev">›</span></button>
+      <div class="set-version" id="appVersionLabel"></div>
+    </div>
+
+    <div class="set-sub" id="secTheme" hidden>
         <div class="field">
           <label>Pozadina</label>
           <div class="theme-row">
@@ -445,14 +470,9 @@
             </button>
           </div>
         </div>
-      </div>
     </div>
 
-    <div class="accordion-item">
-      <button class="accordion-header" data-target="secApi">
-        <span>API ključ i glas</span><span class="accordion-arrow">▾</span>
-      </button>
-      <div class="accordion-body" id="secApi">
+    <div class="set-sub" id="secApi" hidden>
         <div class="field">
           <label>Gemini API ključ</label>
           <div style="display:flex; gap:8px;">
@@ -462,24 +482,14 @@
           <div class="field-hint">Čuva se samo lokalno na ovom telefonu, ne ide u kod aplikacije.</div>
           <div class="field-hint" id="aiFormatHint" style="display:none;"></div>
         </div>
-        <div class="field">
-          <label>Brzina izgovora <span id="rateValueLabel" style="color:var(--accent); font-weight:600;">50</span></label>
-          <div class="slider-row">
-            <span style="font-size:13px;color:var(--text-dim);">sporo</span>
-            <input type="range" id="rateSlider" min="0.6" max="1.4" step="0.05" value="1">
-            <span style="font-size:13px;color:var(--text-dim);">brzo</span>
-          </div>
+        <div class="modal-actions">
+          <button class="btn btn-primary" style="flex:1;" id="saveApiBtn">Sačuvaj ključ</button>
+          <button class="btn btn-primary" style="flex:0 0 96px; background:linear-gradient(135deg,#d9634f,#8a3527); color:#fff;" id="deleteApiBtn">Obriši</button>
         </div>
-        <button class="btn btn-primary" style="width:100%;" id="saveApiBtn">Sačuvaj</button>
         <span id="saveApiConfirm" style="display:none; font-size:13px; color:var(--accent); margin-top:8px; text-align:center;">Sačuvano ✓</span>
-      </div>
     </div>
 
-    <div class="accordion-item">
-      <button class="accordion-header" data-target="secLang">
-        <span>Jezici <span class="accordion-count" id="langCount"></span></span><span class="accordion-arrow">▾</span>
-      </button>
-      <div class="accordion-body" id="secLang">
+    <div class="set-sub" id="secLang" hidden>
         <div id="langListWrap"></div>
 
         <div class="field-hint" style="margin:12px 0 8px;">Dodaj novi jezik sa liste:</div>
@@ -505,14 +515,17 @@
         </div>
         <div class="field-error" id="addLangError">Siva reč u polju je samo primer — upiši svoj naziv i kod pre dodavanja.</div>
         <button class="btn btn-ghost" style="width:100%;" id="addLangBtn">+ Dodaj jezik</button>
-      </div>
     </div>
 
-    <div class="accordion-item">
-      <button class="accordion-header" data-target="secVoices">
-        <span>Glasovi za izgovor</span><span class="accordion-arrow">▾</span>
-      </button>
-      <div class="accordion-body" id="secVoices">
+    <div class="set-sub" id="secVoices" hidden>
+        <div class="field">
+          <label>Brzina izgovora <span id="rateValueLabel" style="color:var(--accent); font-weight:600;">50</span></label>
+          <div class="slider-row">
+            <span style="font-size:13px;color:var(--text-dim);">sporo</span>
+            <input type="range" id="rateSlider" min="0.6" max="1.4" step="0.05" value="1">
+            <span style="font-size:13px;color:var(--text-dim);">brzo</span>
+          </div>
+        </div>
         <div class="field">
           <label>Jezik</label>
           <select id="voiceLangSelect"></select>
@@ -522,14 +535,9 @@
           <select id="voiceSelect"></select>
         </div>
         <button class="btn btn-ghost" style="width:100%;" id="testVoiceBtn">🔊 Probaj ovaj glas</button>
-      </div>
     </div>
 
-    <div class="accordion-item">
-      <button class="accordion-header" data-target="secBackup">
-        <span>Bekap podataka</span><span class="accordion-arrow">▾</span>
-      </button>
-      <div class="accordion-body" id="secBackup">
+    <div class="set-sub" id="secBackup" hidden>
         <div class="field-hint" style="margin:0 0 10px;">Podaci se čuvaju samo u ovom pregledaču. Ako se u Chrome-u obrišu podaci sajta, nestaju zauvek — zato povremeno izvezi bekap.</div>
         <div class="field-hint" id="lastBackupInfo" style="margin:0 0 12px; color:var(--text); font-size:14px;"></div>
         <button class="btn btn-ghost" style="width:100%; margin-bottom:10px;" id="exportBackupBtn">⬇ Izvezi bekap (.json)</button>
@@ -541,21 +549,8 @@
           <input type="text" id="backupDaysInput" inputmode="numeric" pattern="[0-9]*" maxlength="3" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="7">
         </div>
         <div class="field-hint">Bekap sadrži Sačuvano, istoriju, jezike i podešavanja. API ključ nije uključen — ostaje samo na telefonu.</div>
-      </div>
     </div>
 
-    <div class="accordion-item">
-      <button class="accordion-header" data-target="secHistory">
-        <span>Istorija razgovora <span class="accordion-count" id="historyCount"></span></span><span class="accordion-arrow">▾</span>
-      </button>
-      <div class="accordion-body" id="secHistory">
-        <button class="btn btn-ghost" style="width:100%; color:var(--danger); border-color:var(--danger);" id="clearHistoryBtn">Obriši istoriju razgovora</button>
-      </div>
-    </div>
-
-    <div class="modal-actions">
-      <button class="btn btn-ghost" style="width:100%;" id="closeSettingsBtn">Zatvori</button>
-    </div>
   </div>
 </div>
 
@@ -756,9 +751,9 @@ const savedDetailOverlay = document.getElementById('savedDetailOverlay');
 const savedDetailTitle = document.getElementById('savedDetailTitle');
 const savedDetailBody = document.getElementById('savedDetailBody');
 const savedDetailXBtn = document.getElementById('savedDetailXBtn');
-const closeSettingsBtn = document.getElementById('closeSettingsBtn');
 const saveApiBtn = document.getElementById('saveApiBtn');
 const saveApiConfirm = document.getElementById('saveApiConfirm');
+const deleteApiBtn = document.getElementById('deleteApiBtn');
 const settingsXBtn = document.getElementById('settingsXBtn');
 const apiKeyInput = document.getElementById('apiKeyInput');
 const toggleApiKeyBtn = document.getElementById('toggleApiKeyBtn');
@@ -919,6 +914,11 @@ window.addEventListener('popstate', ()=>{
     savedOverlay.style.display = 'none';
     return;
   }
+  if(settingsOverlay.style.display === 'flex' && settingsSubOpen){
+    persistSettingsFields();
+    showSettingsTiles();
+    return;
+  }
   if(settingsOverlay.style.display === 'flex'){
     persistSettingsFields();
     settingsOverlay.style.display = 'none';
@@ -955,23 +955,40 @@ document.getElementById('exitLeaveBtn').onclick = ()=>{
   history.back();
 };
 
-/* ============ accordion ============ */
-function closeAllAccordionSections(){
-  document.querySelectorAll('.accordion-body').forEach(b=>b.classList.remove('open'));
-  document.querySelectorAll('.accordion-header').forEach(h=>h.classList.remove('open'));
+/* ============ podešavanja: pločice i podekrani ============ */
+const APP_VERSION = 85;
+let settingsSubOpen = null; // id otvorenog podekrana ili null (pločice)
+function jezikWord(n){ return (n % 10 === 1 && n % 100 !== 11) ? 'jezik' : 'jezika'; }
+function renderSettingsTiles(){
+  const accentName = { '':'zlatna', blue:'plava', green:'zelena' }[accentChoice] || 'zlatna';
+  document.getElementById('tileSubTheme').textContent = (theme === 'light' ? 'svetla' : 'tamna') + ' · ' + accentName;
+  document.getElementById('tileSubKey').textContent = apiKey ? 'ključ je sačuvan' : 'ključ nije unet';
+  document.getElementById('tileSubLang').textContent = `${langs.length} ${jezikWord(langs.length)}`;
+  document.getElementById('tileSubVoice').textContent = 'brzina ' + Math.round((speechRate - 0.6) / 0.8 * 100);
+  document.getElementById('tileSubBackup').textContent = lastBackupTs ? 'poslednji bekap: ' + formatBackupDate(lastBackupTs) : 'bekap još nikad nije pravljen';
+  document.getElementById('tileSubHistory').textContent = 'u istoriji: ' + chatHistory.length;
+  document.getElementById('appVersionLabel').textContent = 'verzija ' + APP_VERSION;
 }
-document.querySelectorAll('.accordion-header').forEach(h=>{
-  h.onclick = ()=>{
-    const body = document.getElementById(h.dataset.target);
-    const wasOpen = body.classList.contains('open');
-    closeAllAccordionSections();
-    if(!wasOpen){ body.classList.add('open'); h.classList.add('open'); }
-  };
+function showSettingsTiles(){
+  if(document.activeElement && settingsOverlay.contains(document.activeElement)) document.activeElement.blur();
+  document.querySelectorAll('#settingsOverlay .set-sub').forEach(el=> el.hidden = true);
+  document.getElementById('settingsTiles').hidden = false;
+  document.getElementById('settingsTitle').textContent = 'Podešavanja';
+  settingsSubOpen = null;
+  renderSettingsTiles();
+  settingsOverlay.querySelector('.modal').scrollTop = 0;
+}
+function openSettingsSub(id, title){
+  document.getElementById('settingsTiles').hidden = true;
+  document.getElementById(id).hidden = false;
+  document.getElementById('settingsTitle').textContent = title;
+  settingsSubOpen = id;
+  history.pushState({ modal:'settingsSub' }, '');
+  settingsOverlay.querySelector('.modal').scrollTop = 0;
+}
+document.querySelectorAll('#settingsTiles .set-tile[data-sub]').forEach(t=>{
+  t.onclick = ()=> openSettingsSub(t.dataset.sub, t.dataset.title);
 });
-function updateAccordionCounts(){
-  document.getElementById('langCount').textContent = `(${langs.length})`;
-  document.getElementById('historyCount').textContent = `(${chatHistory.length})`;
-}
 
 /* ============ settings modal ============ */
 function openSettings(){
@@ -988,8 +1005,7 @@ function openSettings(){
   renderLangSelect();
   addLangError.style.display = 'none';
   renderVoiceLangSelect();
-  closeAllAccordionSections();
-  updateAccordionCounts();
+  showSettingsTiles();
   renderAiFormatHint();
   openModal(settingsOverlay, 'settings');
 }
@@ -1017,13 +1033,31 @@ function closeSettings(){
   closeModal(settingsOverlay);
 }
 settingsBtn.onclick = openSettings;
-closeSettingsBtn.onclick = closeSettings;
 saveApiBtn.onclick = ()=>{
   persistSettingsFields();
   saveApiConfirm.style.display = 'block';
   setTimeout(()=>{ saveApiConfirm.style.display = 'none'; }, 1800);
 };
-settingsXBtn.onclick = closeSettings;
+/* ‹ u zaglavlju: iz podekrana nazad na pločice, sa pločica izlaz (isto kao korak nazad na telefonu) */
+settingsXBtn.onclick = ()=>{
+  if(settingsSubOpen){
+    if(history.state && history.state.modal === 'settingsSub'){ history.back(); }
+    else { persistSettingsFields(); showSettingsTiles(); }
+  } else {
+    closeSettings();
+  }
+};
+deleteApiBtn.onclick = async ()=>{
+  const ok = await customConfirm('Obriši ključ?', 'Bez ključa prevod ne radi dok ne uneseš novi.');
+  if(!ok) return;
+  apiKey = '';
+  apiKeyInput.value = '';
+  safeSetItem('vp_apikey', '');
+};
+rateSlider.addEventListener('change', ()=>{
+  speechRate = parseFloat(rateSlider.value);
+  safeSetItem('vp_rate', String(speechRate));
+});
 
 function renderLangList(){
   langListWrap.innerHTML = '';
@@ -1041,7 +1075,7 @@ function renderLangList(){
       if(selectedLangCode===l.code) selectedLangCode = langs[0] && langs[0].code;
       saveLangs(); saveSelected();
       renderLangList(); renderLangRow(); renderLangSelect();
-      updateAccordionCounts();
+      renderSettingsTiles();
       updateInputLangHint();
     };
     row.appendChild(rm);
@@ -1101,7 +1135,7 @@ addLangBtn.onclick = ()=>{
   addLangError.style.display = 'none';
   saveLangs();
   renderLangList(); renderLangRow(); renderLangSelect();
-  updateAccordionCounts();
+  renderSettingsTiles();
 };
 async function clearHistory(){
   const ok = await customConfirm('Obriši istoriju?', 'Ovo trajno briše sve zapisane razgovore sa ovog telefona. Sačuvano (⭐) ostaje netaknuto, jer se čuva odvojeno.');
@@ -1109,7 +1143,7 @@ async function clearHistory(){
   chatHistory = [];
   saveHistory();
   renderFeed();
-  updateAccordionCounts();
+  renderSettingsTiles();
 }
 clearHistoryBtn.onclick = clearHistory;
 
@@ -1284,7 +1318,7 @@ function applyBackup(b){
   backupDaysInput.value = String(backupDays);
   renderLangRow(); renderDirection();
   renderLangList(); renderLangSelect(); renderVoiceLangSelect();
-  renderFeed(); updateAccordionCounts(); updateBackupBar();
+  renderFeed(); renderSettingsTiles(); updateBackupBar();
   return added;
 }
 
@@ -1608,7 +1642,7 @@ function buildTurnPair(turn, idx){
     chatHistory.splice(idx, 1);
     saveHistory();
     renderFeed();
-    updateAccordionCounts();
+    renderSettingsTiles();
     showStatus('Sačuvano ⭐', 1800);
   };
   c1.querySelector('.edit-btn').onclick = ()=> startCorrection(c1, idx);
@@ -1708,6 +1742,7 @@ async function submitVoiceInput(){
   if(!apiKey){
     showStatus('Nedostaje Gemini API ključ — dodaj ga u podešavanjima (⚙).', 5000);
     openSettings();
+    openSettingsSub('secApi', 'Gemini API ključ');
     return;
   }
   if(!navigator.onLine){

@@ -356,7 +356,7 @@
 
   <header>
     <div class="header-row1">
-      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v83</span></h1>
+      <h1 class="title">Glasovni prevodilac <span style="font-size:12px; color:var(--text-dim); font-weight:400; vertical-align:middle;">v84</span></h1>
       <div class="header-actions">
         <button class="gear-btn" id="muteBtn" aria-label="Isključi zvuk">🔊</button>
         <button class="gear-btn" id="openSavedBtn" aria-label="Sačuvano">⭐</button>
@@ -460,6 +460,7 @@
             <button type="button" class="btn btn-ghost" id="toggleApiKeyBtn" style="padding:10px 14px;">👁</button>
           </div>
           <div class="field-hint">Čuva se samo lokalno na ovom telefonu, ne ide u kod aplikacije.</div>
+          <div class="field-hint" id="aiFormatHint" style="display:none;"></div>
         </div>
         <div class="field">
           <label>Brzina izgovora <span id="rateValueLabel" style="color:var(--accent); font-weight:600;">50</span></label>
@@ -989,6 +990,7 @@ function openSettings(){
   renderVoiceLangSelect();
   closeAllAccordionSections();
   updateAccordionCounts();
+  renderAiFormatHint();
   openModal(settingsOverlay, 'settings');
 }
 toggleApiKeyBtn.onclick = ()=>{
@@ -1785,6 +1787,25 @@ function friendlyErrorMessage(err){
   return 'Greška: ' + msg;
 }
 
+/* ishod poslednjeg prevoda: koji oblik zahteva je server prihvatio (ne ide u bekap) */
+function saveAiFormatStatus(mode, reasons){
+  safeSetItem('vp_ai_format', JSON.stringify({ mode, reasons: reasons || [], at: Date.now() }));
+}
+function renderAiFormatHint(){
+  const el = document.getElementById('aiFormatHint');
+  if(!el) return;
+  const st = safeParse('vp_ai_format', null);
+  if(!st || !st.mode){ el.style.display = 'none'; el.textContent = ''; return; }
+  let txt = st.mode === 'bez'
+    ? 'poslednji prevod: obrazac odgovora nije prihvaćen, korišćen rezervni način.'
+    : 'poslednji prevod: obrazac odgovora primenjen ✓';
+  if(st.mode !== 'format' && Array.isArray(st.reasons) && st.reasons.length){
+    txt += ' razlog: ' + st.reasons.join(' | ');
+  }
+  el.textContent = txt;
+  el.style.display = 'block';
+}
+
 async function cleanAndTranslateText(rawText, sourceLangLabel, target){
   const prompt = `Izvor: ${sourceLangLabel}. Cilj: ${target.label} (${target.code}).
 Tekst: """${rawText}"""
@@ -1792,11 +1813,33 @@ Tekst: """${rawText}"""
 2) Prevedi očišćeno na cilj.
 JSON: {"cleaned":"...","translation":"..."}`;
 
+  /* Obrazac odgovora (šema). Zvanična strana „structured-output“ piše mimeType 'application/json',
+     a server za responseFormat.text traži nabrojanu vrednost APPLICATION_JSON (potvrđeno u Arhivi i Troškovima).
+     Redom: 1) responseFormat + APPLICATION_JSON, 2) responseMimeType + responseJsonSchema, 3) stari zahtev bez šeme.
+     Na sledeći oblik se prelazi SAMO kad server odbije zahtev (400) — odmah, bez pauze i bez trošenja ponovnog pokušaja.
+     Tajm-aut i 5xx ponavljaju ISTI oblik (do 3 puta), kao i ranije. */
+  const schema = {
+    type: 'object',
+    properties: {
+      cleaned: { type: 'string', description: 'očišćen izvorni tekst' },
+      translation: { type: 'string', description: 'prevod očišćenog teksta na ciljni jezik' }
+    },
+    required: ['cleaned', 'translation']
+  };
+  const thinking = { thinkingLevel: 'minimal' };
+  const forms = [
+    { mode: 'format', gc: { responseFormat: { text: { mimeType: 'APPLICATION_JSON', schema } }, thinkingConfig: thinking } },
+    { mode: 'jsonSchema', gc: { responseMimeType: 'application/json', responseJsonSchema: schema, thinkingConfig: thinking } },
+    { mode: 'bez', gc: { responseMimeType: 'application/json', thinkingConfig: thinking } }
+  ];
+
   const maxAttempts = 3;
   const timeoutMs = 20000;
+  const rejections = [];
+  let formIdx = 0;
   let lastErr;
 
-  for(let attempt = 1; attempt <= maxAttempts; attempt++){
+  for(let attempt = 1; attempt <= maxAttempts; ){
     const controller = new AbortController();
     const timeoutId = setTimeout(()=> controller.abort(), timeoutMs);
     try{
@@ -1805,17 +1848,25 @@ JSON: {"cleaned":"...","translation":"..."}`;
         headers:{ 'Content-Type':'application/json' },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { responseMimeType: 'application/json', thinkingConfig: { thinkingLevel: 'minimal' } }
+          generationConfig: forms[formIdx].gc
         }),
         signal: controller.signal
       });
       clearTimeout(timeoutId);
       if(!resp.ok){
         const errText = await resp.text();
+        if(resp.status === 400 && formIdx < forms.length - 1){
+          let msg = errText;
+          try{ const j = JSON.parse(errText); if(j && j.error && j.error.message) msg = j.error.message; }catch(e){}
+          rejections.push(String(msg).slice(0, 300));
+          formIdx++;
+          continue; // sledeći oblik odmah; brojač ponovnih pokušaja se ne troši
+        }
         const err = new Error(`API greška ${resp.status}: ${errText.slice(0,200)}`);
         err.status = resp.status;
         throw err;
       }
+      saveAiFormatStatus(forms[formIdx].mode, rejections);
       const data = await resp.json();
       const raw = data.candidates?.[0]?.content?.parts?.[0]?.text;
       if(!raw) throw new Error('Prazan odgovor od modela.');
@@ -1832,6 +1883,7 @@ JSON: {"cleaned":"...","translation":"..."}`;
       lastErr = isTimeout ? new Error('Server ne odgovara (tajm-aut).') : err;
       if((isTimeout || isOverloaded) && attempt < maxAttempts){
         await new Promise(r => setTimeout(r, attempt * 1500)); // kratka pauza pre ponovnog pokušaja
+        attempt++;
         continue;
       }
       throw lastErr;

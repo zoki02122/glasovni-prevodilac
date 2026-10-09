@@ -129,7 +129,7 @@
     height: var(--vi-open-h, 130px); border-radius:10px;
     white-space:pre-wrap; overflow-y:auto;
     z-index:20;
-    box-shadow: 0 -10px 26px rgba(0,0,0,0.5);
+    box-shadow: 0 0 0 10px var(--bg); /* v89: pokriva razmak do zaglavlja da istorija ne viri */
   }
   .input-wrap textarea::placeholder{ color: var(--text-dim); }
   /* v89: posle slanja tastatura ostaje, polje nevidljivo (ali u fokusu) — prevod dobija i njegov prostor */
@@ -1830,6 +1830,7 @@ voiceInput.addEventListener('blur', ()=>{ voiceInput.classList.remove('vi-no-ani
 function showVoiceInputAgain(){
   if(!document.body.classList.contains('vi-hidden')) return;
   document.body.classList.remove('vi-hidden');
+  dropCurrentPanel(); // prevod se zatvara kad se polje podigne (inače mu ivica viri iznad polja)
   if(document.activeElement === voiceInput){
     voiceInput.classList.remove('vi-no-anim');   // pojavljivanje sa animacijom (od dna naviše)
     sizeOpenInput();

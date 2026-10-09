@@ -207,6 +207,10 @@
     font-size:21px; line-height:1.35; color: var(--text); margin-bottom:16px;
   }
   .current-panel .cp-text:last-child{ margin-bottom:0; }
+  .current-panel .cp-sep{
+    height:1px; background: var(--text-dim); opacity:0.35;
+    margin: 2px 0 18px;
+  }
   .card{
     width:100%; padding: 14px 18px;
     background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0) 55%), var(--bg-card);
@@ -956,7 +960,7 @@ document.getElementById('exitLeaveBtn').onclick = ()=>{
 };
 
 /* ============ podešavanja: pločice i podekrani ============ */
-const APP_VERSION = 85;
+const APP_VERSION = 86;
 let settingsSubOpen = null; // id otvorenog podekrana ili null (pločice)
 function jezikWord(n){ return (n % 10 === 1 && n % 100 !== 11) ? 'jezik' : 'jezika'; }
 function renderSettingsTiles(){
@@ -1585,6 +1589,7 @@ function showCurrentPanel(turn){
   currentPanelBody.innerHTML = `
     <div class="cp-label">${originalLabel}</div>
     <div class="cp-text">${escapeHtml(turn.cleanedText)}</div>
+    <div class="cp-sep"></div>
     <div class="cp-label" style="color:var(--accent-bright);">${translationLabel}</div>
     <div class="cp-text">${escapeHtml(turn.translatedText)}</div>
   `;

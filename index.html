@@ -125,7 +125,7 @@
     z-index:5;
   }
   .input-wrap textarea:focus{
-    height:130px; border-radius:10px;
+    height: var(--vi-open-h, 130px); border-radius:10px;
     white-space:pre-wrap; overflow-y:auto;
     z-index:20;
     box-shadow: 0 -10px 26px rgba(0,0,0,0.5);
@@ -898,6 +898,7 @@ window.addEventListener('popstate', ()=>{
   if(suppressNextGlobalPopstate){ suppressNextGlobalPopstate = false; return; }
   if(exitConfirmed){ return; }
   if(confirmOverlay.style.display === 'flex'){ return; } // dijalog za potvrdu sam obrađuje Back, ostalo ne dirati
+  if(document.activeElement === voiceInput){ voiceInput.blur(); exitTrapArmed = false; armExitTrap(); return; }
   if(correctingActive){
     correctingActive = false;
     renderFeed();
@@ -960,7 +961,7 @@ document.getElementById('exitLeaveBtn').onclick = ()=>{
 };
 
 /* ============ podešavanja: pločice i podekrani ============ */
-const APP_VERSION = 86;
+const APP_VERSION = 87;
 let settingsSubOpen = null; // id otvorenog podekrana ili null (pločice)
 function jezikWord(n){ return (n % 10 === 1 && n % 100 !== 11) ? 'jezik' : 'jezika'; }
 function renderSettingsTiles(){
@@ -1755,6 +1756,7 @@ async function submitVoiceInput(){
     return;
   }
 
+  voiceInput.blur();
   dropCurrentPanel();
   recState = 'processing';
   sendBtn.disabled = true;
@@ -1798,6 +1800,36 @@ async function submitVoiceInput(){
 }
 
 sendBtn.onclick = submitVoiceInput;
+
+/* ============ v87: polje za unos preko celog ekrana dok se piše ============ */
+// Otvoreno = polje ima fokus. Visina: od donje ivice zaglavlja (ili trake za bekap) do dna polja.
+// Zatvara se: dodir bilo gde van polja i van donjih dugmadi, slanje, korak nazad (tastatura se spusti → ekran se poveća).
+const appHeader = document.querySelector('header');
+function sizeOpenInput(){
+  const bar = document.getElementById('backupBar');
+  let top = appHeader.getBoundingClientRect().bottom;
+  if(bar && bar.getClientRects().length){ top = Math.max(top, bar.getBoundingClientRect().bottom); }
+  const bottom = voiceInput.parentElement.getBoundingClientRect().bottom;
+  const h = Math.max(56, Math.round(bottom - top - 10));
+  voiceInput.style.setProperty('--vi-open-h', h + 'px');
+}
+let viBaseH = 0, viKbOpen = false;
+voiceInput.addEventListener('focus', ()=>{
+  viBaseH = window.innerHeight; viKbOpen = false;
+  sizeOpenInput();
+});
+window.addEventListener('resize', ()=>{
+  if(document.activeElement !== voiceInput) return;
+  // interactive-widget=resizes-content: tastatura smanjuje prozor; kad se spusti (npr. korakom nazad), prozor se vrati
+  if(window.innerHeight < viBaseH - 100){ viKbOpen = true; }
+  else if(viKbOpen){ viKbOpen = false; voiceInput.blur(); return; }
+  sizeOpenInput();
+});
+document.addEventListener('pointerdown', (e)=>{
+  if(document.activeElement !== voiceInput) return;
+  if(e.target.closest && e.target.closest('#voiceInput, #sendBtn, #dirMine, #dirGuest')) return;
+  voiceInput.blur();
+}, true);
 voiceInput.addEventListener('keydown', (e)=>{
   if(e.key === 'Enter'){ e.preventDefault(); submitVoiceInput(); }
 });

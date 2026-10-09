@@ -132,6 +132,14 @@
     box-shadow: 0 -10px 26px rgba(0,0,0,0.5);
   }
   .input-wrap textarea::placeholder{ color: var(--text-dim); }
+  /* v89: posle slanja tastatura ostaje, polje nevidljivo (ali u fokusu) — prevod dobija i njegov prostor */
+  body.vi-hidden .text-row{ margin-bottom:0; }
+  body.vi-hidden .input-wrap{ height:0; }
+  body.vi-hidden .input-wrap textarea,
+  body.vi-hidden .input-wrap textarea:focus{
+    height:1px; padding:0; border:0; opacity:0; box-shadow:none; transition:none; pointer-events:none;
+  }
+  body.vi-hidden .current-panel{ bottom:116px; }
   .send-btn{
     pointer-events:auto; flex:1;
     height:56px; border-radius:999px; border:none;
@@ -962,7 +970,7 @@ document.getElementById('exitLeaveBtn').onclick = ()=>{
 };
 
 /* ============ podešavanja: pločice i podekrani ============ */
-const APP_VERSION = 88;
+const APP_VERSION = 89;
 let settingsSubOpen = null; // id otvorenog podekrana ili null (pločice)
 function jezikWord(n){ return (n % 10 === 1 && n % 100 !== 11) ? 'jezik' : 'jezika'; }
 function renderSettingsTiles(){
@@ -1748,6 +1756,7 @@ async function submitVoiceInput(){
 
   if(!apiKey){
     showStatus('Nedostaje Gemini API ključ — dodaj ga u podešavanjima (⚙).', 5000);
+    voiceInput.blur(); // v89: dugme Pošalji više ne odnosi fokus — podešavanja se otvaraju bez tastature
     openSettings();
     openSettingsSub('secApi', 'Gemini API ključ');
     return;
@@ -1757,11 +1766,12 @@ async function submitVoiceInput(){
     return;
   }
 
-  voiceInput.blur();
   dropCurrentPanel();
   recState = 'processing';
   sendBtn.disabled = true;
-  voiceInput.disabled = true;
+  // v89: tastatura ostaje otvorena — polje se odmah isprazni i sakrije (ostaje u fokusu), može se kucati sledeće
+  voiceInput.value = '';
+  if(document.activeElement === voiceInput){ document.body.classList.add('vi-hidden'); }
   setControlsDisabled(true);
   showStatus('Obrađujem...');
   let succeeded = false;
@@ -1771,7 +1781,6 @@ async function submitVoiceInput(){
     const target = getTargetLang();
     const result = await cleanAndTranslateText(transcript, sourceLangLabel, target);
     const _elapsed = ((performance.now() - _t0) / 1000).toFixed(1); // PRIVREMENO
-    voiceInput.value = '';
     const turn = {
       direction,
       sourceLangLabel,
@@ -1792,10 +1801,12 @@ async function submitVoiceInput(){
     const _elapsed = ((performance.now() - _t0) / 1000).toFixed(1); // PRIVREMENO
     console.error(err);
     showStatus(`${friendlyErrorMessage(err)} (${_elapsed}s)`, 6000);
+    // v89: neuspeh — vrati tekst ako u međuvremenu nije početo novo pisanje, i pokaži polje
+    if(!voiceInput.value.trim()){ voiceInput.value = transcript; }
+    showVoiceInputAgain();
   }finally{
     recState = 'idle';
     sendBtn.disabled = false;
-    voiceInput.disabled = false;
     setControlsDisabled(false);
   }
 }
@@ -1815,7 +1826,22 @@ function sizeOpenInput(){
   voiceInput.style.setProperty('--vi-open-h', h + 'px');
 }
 let viBaseH = 0, viKbOpen = false;
-voiceInput.addEventListener('blur', ()=>{ voiceInput.classList.remove('vi-no-anim'); });
+voiceInput.addEventListener('blur', ()=>{ voiceInput.classList.remove('vi-no-anim'); document.body.classList.remove('vi-hidden'); });
+function showVoiceInputAgain(){
+  if(!document.body.classList.contains('vi-hidden')) return;
+  document.body.classList.remove('vi-hidden');
+  if(document.activeElement === voiceInput){
+    voiceInput.classList.remove('vi-no-anim');   // pojavljivanje sa animacijom (od dna naviše)
+    sizeOpenInput();
+  }
+}
+// v89: dodir na Pošalji / Ja govorim / Gost ne sme da odnese fokus sa polja (to bi spustilo tastaturu).
+// Fokus se daje u podrazumevanoj radnji mousedown-a; preventDefault ga sprečava, a click i dalje stiže.
+[sendBtn, dirMine, dirGuest].forEach(btn => btn.addEventListener('mousedown', (e)=>{
+  if(document.activeElement === voiceInput) e.preventDefault();
+}));
+// v89: prvo slovo ili diktat dok je polje sakriveno → polje se pojavi rašireno, sa tim slovom
+voiceInput.addEventListener('input', showVoiceInputAgain);
 voiceInput.addEventListener('focus', ()=>{
   voiceInput.classList.remove('vi-no-anim');
   viBaseH = window.innerHeight; viKbOpen = false;

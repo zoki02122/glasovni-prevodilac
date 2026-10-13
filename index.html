@@ -970,7 +970,7 @@ document.getElementById('exitLeaveBtn').onclick = ()=>{
 };
 
 /* ============ podešavanja: pločice i podekrani ============ */
-const APP_VERSION = 89;
+const APP_VERSION = 90;
 let settingsSubOpen = null; // id otvorenog podekrana ili null (pločice)
 function jezikWord(n){ return (n % 10 === 1 && n % 100 !== 11) ? 'jezik' : 'jezika'; }
 function renderSettingsTiles(){
@@ -1533,6 +1533,21 @@ function openSavedDetail(itemId){
     titleEl.replaceWith(input);
     input.focus();
     input.select();
+    /* Gboard zaštita (isto kao Troškovi, Stanje guma, Kućna apoteka): naziv je ceo označen; Gboard na „obriši“ ponekad skine
+       samo kraj označenog teksta. Ako posle prvog brisanja ostane početak starog naziva, polje se isprazni (kako je korisnik hteo).
+       Kad korisnik sam postavi kursor (označavanje prestane), brisanje radi normalno, slovo po slovo. */
+    const renameOriginal = new WeakMap(); renameOriginal.set(input, input.value);
+    let renamePristine = true;
+    input.addEventListener('beforeinput', ()=>{
+      if(renamePristine && !(input.selectionStart === 0 && input.selectionEnd === input.value.length)) renamePristine = false;
+    });
+    input.addEventListener('input', (ev)=>{
+      if(!renamePristine) return;
+      renamePristine = false;
+      if(!ev.inputType || ev.inputType.indexOf('delete') !== 0) return;
+      const original = renameOriginal.get(input);
+      if(input.value !== '' && input.value.length < original.length && original.indexOf(input.value) === 0) input.value = '';
+    });
     const commit = ()=>{
       const v = input.value.trim();
       if(v) item.name = v;

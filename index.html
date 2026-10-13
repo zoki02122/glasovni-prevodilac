@@ -381,9 +381,23 @@
   .theme-swatch.active{ border-color: var(--accent-bright); color: var(--text); }
   .swatch-preview{ width:28px; height:28px; border-radius:50%; display:block; }
   .slider-row input[type=range]{ flex:1; }
+
+  /* ============ obaveštenja gore (isto kao Troškovi) ============ */
+  .note-top{ display:none; position:fixed; top:0; left:0; right:0; z-index:60; padding:calc(8px + env(safe-area-inset-top,0px)) 12px 0; box-sizing:border-box; background:var(--bg); pointer-events:none; }
+  .note-top.on{ display:block; }
+  .note-bar{ --note-c:var(--accent); max-width:560px; margin:0 auto; min-height:92px; box-sizing:border-box; display:flex; align-items:center; gap:14px; padding:10px 16px; border-radius:14px; background:color-mix(in srgb, var(--note-c) 25%, var(--bg)); border:1.5px solid color-mix(in srgb, var(--note-c) 55%, var(--bg)); color:var(--text); font-size:21px; font-weight:600; line-height:1.2; overflow:hidden; }
+  .note-bar.warn{ --note-c:var(--danger); }
+  .note-bar .note-ic{ flex:none; width:40px; height:40px; box-sizing:border-box; border-radius:50%; border:2px solid var(--note-c); color:var(--note-c); display:flex; align-items:center; justify-content:center; }
+  .note-bar .note-tx{ min-width:0; flex:1; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow-wrap:anywhere; }
+  .note-bar.warn .note-tx{ font-size:17px; -webkit-line-clamp:4; }
+  body.noting #app{ padding-top:var(--note-h); box-sizing:border-box; }
+  body.noting .modal-overlay{ top:var(--note-h); }  /* i prozori (Podešavanja, Sačuvano…) počinju ispod trake */
+  .mic-status:empty{ visibility:hidden; }
+  .btn.btn-save-now{ background:var(--accent); border-color:var(--accent); color:var(--accent-text); }
 </style>
 </head>
 <body>
+<div class="note-top" id="noteTop" aria-live="polite"></div>
 <div id="app">
 
   <header>
@@ -802,6 +816,41 @@ const confirmBody = document.getElementById('confirmBody');
 const confirmCancel = document.getElementById('confirmCancel');
 const confirmOk = document.getElementById('confirmOk');
 
+/* ============ obaveštenja gore (isto kao Troškovi): dodir ih ne zatvara, stoje svoje vreme i nestanu sama;
+   dok je prst na ekranu ne nestaju (nestanu kad se prst podigne) ============ */
+let _note = null, _noteTimer = null, _noteWait = false, _ptrDown = 0;
+function showNote(msg, opt){
+  opt = opt || {};
+  _note = { text: String(msg), warn: !!opt.warn };
+  clearTimeout(_noteTimer); _noteWait = false;
+  _noteTimer = setTimeout(noteTimeUp, opt.ms || (opt.warn ? 6000 : 4000));
+  renderNote();
+}
+function noteTimeUp(){ if(_ptrDown > 0){ _noteWait = true; return; } hideNote(); }
+function hideNote(){ _note = null; clearTimeout(_noteTimer); _noteWait = false; renderNote(); }
+function renderNote(){
+  const top = document.getElementById('noteTop'); if(!top) return;
+  top.innerHTML = '';
+  top.classList.toggle('on', !!_note);
+  document.body.classList.toggle('noting', !!_note);
+  if(_note){
+    const bar = document.createElement('div');
+    bar.className = 'note-bar' + (_note.warn ? ' warn' : '');
+    bar.innerHTML = '<span class="note-ic">' + (_note.warn
+      ? '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="6.5" x2="12" y2="13.5"></line><line x1="12" y1="17.5" x2="12.01" y2="17.5"></line></svg>'
+      : '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>')
+      + '</span><span class="note-tx"></span>';
+    bar.querySelector('.note-tx').textContent = _note.text;
+    top.appendChild(bar);
+    document.documentElement.style.setProperty('--note-h', top.offsetHeight + 'px');
+  }
+}
+document.addEventListener('pointerdown', ()=>{ _ptrDown++; }, true);
+['pointerup','pointercancel'].forEach(ev => document.addEventListener(ev, ()=>{
+  _ptrDown = Math.max(0, _ptrDown - 1);
+  if(_ptrDown === 0 && _noteWait) hideNote();
+}, true));
+
 /* ============ status line above the input ============ */
 let statusTimer = null;
 function showStatus(msg, ms){
@@ -970,7 +1019,7 @@ document.getElementById('exitLeaveBtn').onclick = ()=>{
 };
 
 /* ============ podešavanja: pločice i podekrani ============ */
-const APP_VERSION = 90;
+const APP_VERSION = 91;
 let settingsSubOpen = null; // id otvorenog podekrana ili null (pločice)
 function jezikWord(n){ return (n % 10 === 1 && n % 100 !== 11) ? 'jezik' : 'jezika'; }
 function renderSettingsTiles(){
@@ -1216,7 +1265,7 @@ function exportBackup(){
     setTimeout(()=> URL.revokeObjectURL(url), 10000);
   }catch(e){
     console.error(e);
-    showStatus('Bekap nije uspeo — probaj ponovo.', 4000);
+    showNote('Bekap nije uspeo — probaj ponovo.', { warn:true });
     return;
   }
   lastBackupTs = Date.now();
@@ -1225,7 +1274,7 @@ function exportBackup(){
   safeSetItem('vp_backup_snooze', '0');
   updateBackupInfo();
   updateBackupBar();
-  showStatus('Bekap izvezen ✓', 3000);
+  showNote('Bekap izvezen');
 }
 exportBackupBtn.onclick = exportBackup;
 backupBarNowBtn.onclick = exportBackup;
@@ -1337,9 +1386,8 @@ function applyBackup(b){
 }
 
 function showBackupResult(msg, isError){
-  backupResult.textContent = msg;
-  backupResult.style.color = isError ? 'var(--danger)' : 'var(--accent)';
-  backupResult.style.display = 'block';
+  backupResult.style.display = 'none';
+  showNote(msg, { warn: !!isError });
 }
 importBackupBtn.onclick = ()=> importBackupFile.click();
 importBackupFile.addEventListener('change', ()=>{
@@ -1506,10 +1554,19 @@ function renderSavedList(){
   });
 }
 
+let renaming = false, renameSaveIntent = false, finishRename = ()=>{}, renameCommit = ()=>{}, renameInput = null;
+/* zatvori prozor sačuvanog i spisak sačuvanih odjednom (oba su otvorena sa pushState) → početni ekran */
+function closeSavedToHome(){
+  let n = 0;
+  [savedDetailOverlay, savedOverlay].forEach(o=>{ if(o.style.display === 'flex'){ o.style.display = 'none'; n++; } });
+  selectionMode = false; selectedIds = new Set();
+  if(n > 0 && history.state && history.state.modal){ suppressNextGlobalPopstate = true; history.go(-n); }
+}
 function openSavedDetail(itemId){
   const item = savedItems.find(it=>it.id === itemId);
   if(!item) return;
   savedDetailTitle.textContent = item.name;
+  renaming = false; renameSaveIntent = false;
   savedDetailBody.innerHTML = `
     <div class="card-label">${item.direction==='mine' ? 'JA' : 'GOST · ' + escapeHtml(item.sourceLangLabel)}</div>
     <div class="card-text" style="margin-bottom:10px;">${escapeHtml(item.cleanedText)}</div>
@@ -1523,6 +1580,8 @@ function openSavedDetail(itemId){
   `;
   savedDetailBody.querySelector('#savedDetailSpeakBtn').onclick = ()=> speak(item.translatedText, item.targetLangCode, true);
   savedDetailBody.querySelector('#savedDetailRenameBtn').onclick = ()=>{
+    renameSaveIntent = false;
+    if(renaming){ finishRename(); return; }
     const titleEl = savedDetailTitle;
     const input = document.createElement('input');
     input.type = 'text';
@@ -1530,6 +1589,7 @@ function openSavedDetail(itemId){
     input.className = 'saved-rename-input';
     input.setAttribute('autocomplete','off'); input.setAttribute('autocorrect','off');
     input.setAttribute('autocapitalize','off'); input.setAttribute('spellcheck','false');
+    input.setAttribute('enterkeyhint','done');
     titleEl.replaceWith(input);
     input.focus();
     input.select();
@@ -1548,16 +1608,48 @@ function openSavedDetail(itemId){
       const original = renameOriginal.get(input);
       if(input.value !== '' && input.value.length < original.length && original.indexOf(input.value) === 0) input.value = '';
     });
+    /* Dok je polje otvoreno, dugme je „Sačuvaj“. „Sačuvaj“ i ✓ na tastaturi: sačuvaj, zatvori prozor i spisak sačuvanih,
+       vrati na početni ekran, obaveštenje gore. Izlazak iz polja na drugi način (dodir pored, ✕) samo tiho sačuva naziv. */
+    const btn = savedDetailBody.querySelector('#savedDetailRenameBtn');
+    btn.textContent = 'Sačuvaj'; btn.classList.add('btn-save-now');
+    renaming = true;
+    let done = false;
     const commit = ()=>{
+      if(done) return false;
+      done = true; renaming = false;
       const v = input.value.trim();
+      const changed = !!v && v !== item.name;
       if(v) item.name = v;
       saveSavedItems();
-      input.replaceWith(titleEl);
+      renderSavedList();
+      if(input.isConnected) input.replaceWith(titleEl);
       titleEl.textContent = item.name;
+      btn.textContent = 'Preimenuj'; btn.classList.remove('btn-save-now');
+      return changed;
     };
-    input.addEventListener('blur', commit);
-    input.addEventListener('keydown', (ev)=>{ if(ev.key === 'Enter'){ ev.preventDefault(); input.blur(); } });
+    finishRename = ()=>{
+      commit();
+      input.blur();
+      closeSavedToHome();
+      showNote('Naziv sačuvan');
+    };
+    input.addEventListener('blur', ()=>{ if(renameSaveIntent) return; commit(); });
+    renameCommit = commit; renameInput = input;
+    input.addEventListener('keydown', (ev)=>{ if(ev.key === 'Enter'){ ev.preventDefault(); finishRename(); } });
   };
+  /* Dodir na „Sačuvaj“ skida fokus sa polja PRE klika. Bez ovoga bi se polje zatvorilo na gubitak fokusa, a klik bi ga ponovo
+     otvorio (to je bila greška do v90). Zato dugme već na pritisak zapamti nameru, a gubitak fokusa tada ne zatvara polje. */
+  const renameBtnEl = savedDetailBody.querySelector('#savedDetailRenameBtn');
+  renameBtnEl.addEventListener('pointerdown', ()=>{ if(renaming) renameSaveIntent = true; });
+  renameBtnEl.addEventListener('mousedown', (ev)=>{ if(renaming) ev.preventDefault(); });
+  /* prst je otklizao sa dugmeta (klik se ne desi): samo tiho sačuvaj, kao pri dodiru pored polja */
+  const dropSaveIntent = ()=>{
+    if(!renameSaveIntent) return;
+    renameSaveIntent = false;
+    if(document.activeElement !== renameInput) renameCommit();
+  };
+  renameBtnEl.addEventListener('pointercancel', dropSaveIntent);
+  renameBtnEl.addEventListener('pointerup', ()=>{ setTimeout(dropSaveIntent, 400); });
   savedDetailBody.querySelector('#savedDetailDeleteBtn').onclick = async ()=>{
     const ok = await customConfirm('Obriši sačuvano?', `Obrisati "${item.name}" iz sačuvanog? Ovo se ne može vratiti.`);
     if(!ok) return;
@@ -1673,7 +1765,7 @@ function buildTurnPair(turn, idx){
     saveHistory();
     renderFeed();
     renderSettingsTiles();
-    showStatus('Sačuvano ⭐', 1800);
+    showNote('Sačuvano');
   };
   c1.querySelector('.edit-btn').onclick = ()=> startCorrection(c1, idx);
 
@@ -1719,7 +1811,7 @@ function startCorrection(cardEl, idx){
     const newText = cardEl.querySelector('#correctionText').value.trim();
     if(!newText) return;
     if(!navigator.onLine){
-      showStatus('Nema internet konekcije.', 3000);
+      showNote('Nema internet konekcije.', { warn:true });
       return;
     }
     const saveBtn = cardEl.querySelector('#correctionSave');
@@ -1738,7 +1830,7 @@ function startCorrection(cardEl, idx){
       console.error(err);
       saveBtn.textContent = 'Sačuvaj i prevedi ponovo';
       saveBtn.disabled = false;
-      showStatus(friendlyErrorMessage(err), 4000);
+      showNote(friendlyErrorMessage(err), { warn:true });
     }
   };
 }
@@ -1770,14 +1862,14 @@ async function submitVoiceInput(){
   if(!transcript) return;
 
   if(!apiKey){
-    showStatus('Nedostaje Gemini API ključ — dodaj ga u podešavanjima (⚙).', 5000);
+    showNote('Nedostaje Gemini API ključ — dodaj ga u podešavanjima (⚙).', { warn:true });
     voiceInput.blur(); // v89: dugme Pošalji više ne odnosi fokus — podešavanja se otvaraju bez tastature
     openSettings();
     openSettingsSub('secApi', 'Gemini API ključ');
     return;
   }
   if(!navigator.onLine){
-    showStatus('Nema internet konekcije.', 3000);
+    showNote('Nema internet konekcije.', { warn:true });
     return;
   }
 
@@ -1815,7 +1907,7 @@ async function submitVoiceInput(){
   }catch(err){
     const _elapsed = ((performance.now() - _t0) / 1000).toFixed(1); // PRIVREMENO
     console.error(err);
-    showStatus(`${friendlyErrorMessage(err)} (${_elapsed}s)`, 6000);
+    showStatus(''); showNote(`${friendlyErrorMessage(err)} (${_elapsed}s)`, { warn:true });
     // v89: neuspeh — vrati tekst ako u međuvremenu nije početo novo pisanje, i pokaži polje
     if(!voiceInput.value.trim()){ voiceInput.value = transcript; }
     showVoiceInputAgain();

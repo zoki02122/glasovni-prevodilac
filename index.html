@@ -1418,7 +1418,7 @@ document.getElementById('exitLeaveBtn').onclick = ()=>{
 };
 
 /* ============ podešavanja: pločice i podekrani ============ */
-const APP_VERSION = 95;
+const APP_VERSION = 96;
 let settingsSubOpen = null; // id otvorenog podekrana ili null (pločice)
 function jezikWord(n){ return (n % 10 === 1 && n % 100 !== 11) ? 'jezik' : 'jezika'; }
 function renderSettingsTiles(){
@@ -2393,7 +2393,7 @@ function setControlsDisabled(disabled){
 async function submitVoiceInput(){
   if(recState !== 'idle') return;
   const transcript = voiceInput.value.trim();
-  if(!transcript) return;
+  if(!transcript){ voiceInput.blur(); return; } // v96: Pošalji (ili Enter) na praznom polju zatvara polje i tastaturu
 
   if(!apiKey){
     showNote('Nedostaje Gemini API ključ — dodaj ga u podešavanjima (⚙).', { warn:true });
@@ -2506,6 +2506,32 @@ document.addEventListener('pointerdown', (e)=>{
 }, true);
 voiceInput.addEventListener('keydown', (e)=>{
   if(e.key === 'Enter'){ e.preventDefault(); submitVoiceInput(); }
+});
+/* v96 (Zoran 14.10.): zatvaranje kad je polje PRAZNO.
+   ⌫ na tastaturi: ako je prevod na ekranu, zatvara se samo prevod (tastatura ostaje); inače se zatvaraju polje i tastatura.
+   ⌫ se hvata kao u Apoteci v47 (kod Zorana potvrđeno na praznom polju): keydown 'Backspace' ili beforeinput delete*.
+   Ako stignu oba za isti pritisak, ili se ⌫ drži (ponavljanje), radi se samo jedna radnja (250 ms posle poslednjeg).
+   Drugi dodir na već otvoreno prazno polje ga zatvara (pointerdown dok je fokusirano + click), kao „drugi dodir“ u Apoteci v47. */
+let viEmptyBsAt = 0;
+function viEmptyBackspace(){
+  const now = Date.now();
+  const repeat = now - viEmptyBsAt < 250;
+  viEmptyBsAt = now;            // držanje ⌫ (ponavljanje tastera) produžava zaštitu: jedno držanje = jedna radnja
+  if(repeat) return;
+  if(currentPanel.style.display !== 'none'){ dropCurrentPanel(); return; }
+  voiceInput.blur();
+}
+voiceInput.addEventListener('keydown', (e)=>{
+  if(e.key === 'Backspace' && voiceInput.value === ''){ e.preventDefault(); viEmptyBackspace(); }
+});
+voiceInput.addEventListener('beforeinput', (e)=>{
+  if(typeof e.inputType === 'string' && e.inputType.indexOf('delete') === 0 && voiceInput.value === ''){ e.preventDefault(); viEmptyBackspace(); }
+});
+let viWasFocused = false;
+voiceInput.addEventListener('pointerdown', ()=>{ viWasFocused = (document.activeElement === voiceInput); });
+voiceInput.addEventListener('click', ()=>{
+  if(viWasFocused && voiceInput.value.trim() === '') voiceInput.blur();
+  viWasFocused = false;
 });
 
 /* ============ text-only re-translate, used only when correcting a turn afterward ============ */

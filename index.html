@@ -349,8 +349,6 @@
   .set-tile .tile-title{ font-size:16px; font-weight:600; }
   .set-tile .tile-sub{ font-size:13px; color: var(--text-dim); }
   .set-tile .tile-chev{ color: var(--text-dim); font-size:24px; line-height:1; }
-  .set-tile.danger{ margin-top:18px; }
-  .set-tile.danger .tile-title{ color: var(--danger); }
   .set-version{ text-align:center; font-size:12.5px; color: var(--text-dim); padding-top:14px; }
   .set-sub .field:last-child{ margin-bottom:0; }
   .field{ margin-bottom:14px; }
@@ -559,14 +557,13 @@
     </div>
 
     <div id="settingsTiles">
-      <button class="set-tile" data-sub="secTheme" data-title="Izgled"><span class="tile-icon">🎨</span><span class="tile-text"><span class="tile-title">Izgled</span><span class="tile-sub" id="tileSubTheme"></span></span><span class="tile-chev">›</span></button>
-      <button class="set-tile" data-sub="secApi" data-title="Gemini API ključ"><span class="tile-icon">🔑</span><span class="tile-text"><span class="tile-title">Gemini API ključ</span><span class="tile-sub" id="tileSubKey"></span></span><span class="tile-chev">›</span></button>
       <button class="set-tile" id="langsTileBtn"><span class="tile-icon">🌐</span><span class="tile-text"><span class="tile-title">Jezici</span><span class="tile-sub" id="tileSubLang"></span></span><span class="tile-chev">›</span></button>
+      <button class="set-tile" data-sub="secGuide" data-title="Uputstvo"><span class="tile-icon">📖</span><span class="tile-text"><span class="tile-title">Uputstvo</span><span class="tile-sub">kako se koristi aplikacija</span></span><span class="tile-chev">›</span></button>
+      <button class="set-tile" data-sub="secTheme" data-title="Izgled"><span class="tile-icon">🎨</span><span class="tile-text"><span class="tile-title">Izgled</span><span class="tile-sub" id="tileSubTheme"></span></span><span class="tile-chev">›</span></button>
       <button class="set-tile" data-sub="secVoices" data-title="Glas i izgovor"><span class="tile-icon">🔊</span><span class="tile-text"><span class="tile-title">Glas i izgovor</span><span class="tile-sub" id="tileSubVoice"></span></span><span class="tile-chev">›</span></button>
+      <button class="set-tile" data-sub="secApi" data-title="Gemini API ključ"><span class="tile-icon">🔑</span><span class="tile-text"><span class="tile-title">Gemini API ključ</span><span class="tile-sub" id="tileSubKey"></span></span><span class="tile-chev">›</span></button>
       <button class="set-tile" data-sub="secBackup" data-title="Bekap podataka"><span class="tile-icon">💾</span><span class="tile-text"><span class="tile-title">Bekap podataka</span><span class="tile-sub" id="tileSubBackup"></span></span><span class="tile-chev">›</span></button>
       <button class="set-tile" data-sub="secTrash" data-title="Korpa"><span class="tile-icon">♻️</span><span class="tile-text"><span class="tile-title">Korpa</span><span class="tile-sub" id="tileSubTrash"></span></span><span class="tile-chev">›</span></button>
-      <button class="set-tile" data-sub="secGuide" data-title="Uputstvo"><span class="tile-icon">📖</span><span class="tile-text"><span class="tile-title">Uputstvo</span><span class="tile-sub">kako se koristi aplikacija</span></span><span class="tile-chev">›</span></button>
-      <button class="set-tile danger" id="clearHistoryBtn"><span class="tile-icon">🗑</span><span class="tile-text"><span class="tile-title">Obriši ceo razgovor</span><span class="tile-sub" id="tileSubHistory"></span></span><span class="tile-chev">›</span></button>
       <div class="set-version" id="appVersionLabel"></div>
     </div>
 
@@ -1210,7 +1207,6 @@ const newLangLabel = document.getElementById('newLangLabel');
 const newLangCode = document.getElementById('newLangCode');
 const addLangBtn = document.getElementById('addLangBtn');
 const addLangError = document.getElementById('addLangError');
-const clearHistoryBtn = document.getElementById('clearHistoryBtn');
 const voiceLangSelect = document.getElementById('voiceLangSelect');
 const voiceSelect = document.getElementById('voiceSelect');
 const testVoiceBtn = document.getElementById('testVoiceBtn');
@@ -1449,7 +1445,6 @@ function renderSettingsTiles(){
   document.getElementById('tileSubLang').textContent = `${langs.length} ${jezikWord(langs.length)}`;
   document.getElementById('tileSubVoice').textContent = 'brzina ' + Math.round((speechRate - 0.6) / 0.8 * 100);
   document.getElementById('tileSubBackup').textContent = lastBackupTs ? 'poslednji bekap: ' + formatBackupDate(lastBackupTs) : 'bekap još nikad nije pravljen';
-  document.getElementById('tileSubHistory').textContent = 'u razgovoru: ' + chatHistory.length + ' · ide u korpu';
   document.getElementById('tileSubTrash').textContent = trashTileSub();
   document.getElementById('appVersionLabel').textContent = 'verzija ' + APP_VERSION;
 }
@@ -1835,7 +1830,6 @@ async function clearHistory(){
   renderSettingsTiles();
   showNote('Ceo razgovor je u korpi');
 }
-clearHistoryBtn.onclick = clearHistory;
 
 /* ============ backup: export / import / reminder ============ */
 function pad2(n){ return String(n).padStart(2, '0'); }

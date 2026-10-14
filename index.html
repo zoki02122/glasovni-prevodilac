@@ -662,8 +662,7 @@
     </div>
 
     <div class="set-sub" id="secTrash" hidden>
-        <div id="trashList"></div>
-        <div class="field" style="margin-top:16px;">
+        <div class="field">
           <label>Čuvaj obrisano (dana)</label>
           <div class="save-row">
             <input type="text" id="trashDaysInput" inputmode="numeric" pattern="[0-9]*" maxlength="3" enterkeyhint="done" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="30">
@@ -671,7 +670,8 @@
           </div>
           <div class="days-err" id="trashDaysErr">Upiši broj od 1 do 365.</div>
         </div>
-        <div class="field-hint">Obrisani prevodi i razgovori čekaju ovde. Kad prođe ovoliko dana, trajno se brišu pri otvaranju aplikacije. Korpa ne ide u bekap.</div>
+        <div class="field-hint" style="margin-bottom:14px;">Obrisani prevodi i razgovori čekaju ovde. Kad prođe ovoliko dana, trajno se brišu pri otvaranju aplikacije. Korpa ne ide u bekap.</div>
+        <div id="trashList"></div>
         <div class="trash-bar" id="trashBar">
           <button type="button" class="btn btn-primary" id="trashRestoreBtn">Vrati</button>
           <button type="button" class="btn trash-purge" id="trashPurgeBtn">Obriši trajno</button>
@@ -1441,7 +1441,7 @@ document.getElementById('exitLeaveBtn').onclick = ()=>{
 };
 
 /* ============ podešavanja: pločice i podekrani ============ */
-const APP_VERSION = 99;
+const APP_VERSION = 100;
 let settingsSubOpen = null; // id otvorenog podekrana ili null (pločice)
 function jezikWord(n){ return (n % 10 === 1 && n % 100 !== 11) ? 'jezik' : 'jezika'; }
 function renderSettingsTiles(){
@@ -1498,7 +1498,7 @@ const GUIDE = [
  ],
  [
   "Korpa",
-  "Sve obrisano ide u korpu (Podešavanja → Korpa) i tamo čeka zadati broj dana (podrazumevano 30), a zatim se trajno briše pri otvaranju aplikacije. Broj dana se menja na dnu korpe i čuva dugmetom „Sačuvaj“ pored polja.",
+  "Sve obrisano ide u korpu (Podešavanja → Korpa) i tamo čeka zadati broj dana (podrazumevano 30), a zatim se trajno briše pri otvaranju aplikacije. Broj dana se menja na vrhu korpe i čuva dugmetom „Sačuvaj“ pored polja.",
   "Dodir označava stavku; dole su „Vrati“ i „Obriši trajno“. Vraćena razmena ide u razgovor, a sačuvani prevod u Sačuvano.",
   "🗑 gore šalje ceo razgovor u korpu kao jednu stavku, koja se vraća cela, istim redom."
  ],

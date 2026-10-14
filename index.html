@@ -461,6 +461,13 @@
   .lp-manual-btn{ display:block; width:100%; margin-top:10px; padding:8px; background:none; border:none; font-family:'Barlow', sans-serif;
     font-size:14px; font-weight:600; color:var(--accent); cursor:pointer; }
   #langsManual{ margin-top:8px; }
+
+  /* ===== v95: raspored jezika — drži jezik pa prevuci (u prozoru 🌐) ===== */
+  .lp-mine{ position:relative; padding-top:6px !important; padding-bottom:8px !important; margin-top:-4px !important; }
+  .lp-chip{ -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
+  .lp-chip.lift{ position:relative; z-index:3; border:2px solid var(--accent-bright); background:var(--bg-raised);
+    box-shadow:0 8px 20px rgba(0,0,0,.5); transition:none !important; }
+  .lp-mine.dragging{ -webkit-mask-image:none; mask-image:none; }
 </style>
 </head>
 <body>
@@ -649,7 +656,7 @@
       <h2>Jezici</h2>
       <button class="modal-close" id="langsXBtn" aria-label="Zatvori">✕</button>
     </div>
-    <div class="lp-lbl">U redu jezika <span>· ✕ uklanja · prevuci levo-desno</span></div>
+    <div class="lp-lbl">U redu jezika <span>· ✕ uklanja · drži i prevuci = raspored</span></div>
     <div class="lp-mine" id="langsMine"></div>
     <div class="lp-lbl">Dodaj jezik <span>· dodir dodaje</span></div>
     <input type="text" id="langsSearch" class="lp-search" placeholder="🔍 Pretraži jezik..." enterkeyhint="search" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
@@ -1411,7 +1418,7 @@ document.getElementById('exitLeaveBtn').onclick = ()=>{
 };
 
 /* ============ podešavanja: pločice i podekrani ============ */
-const APP_VERSION = 94;
+const APP_VERSION = 95;
 let settingsSubOpen = null; // id otvorenog podekrana ili null (pločice)
 function jezikWord(n){ return (n % 10 === 1 && n % 100 !== 11) ? 'jezik' : 'jezika'; }
 function renderSettingsTiles(){
@@ -1547,6 +1554,8 @@ function renderLangsMine(){
     const chip = document.createElement('span');
     chip.className = 'lp-chip' + (langs.length <= 1 ? ' only' : '');
     chip.textContent = l.label;
+    chip.dataset.code = l.code;
+    if(langs.length > 1) attachChipDrag(chip);
     if(langs.length > 1){
       const rm = document.createElement('button');
       rm.type = 'button'; rm.className = 'rm'; rm.textContent = '✕';
@@ -1576,6 +1585,82 @@ function normSearch(t){
     .replace(/đ/g, 'd').replace(/dj/g, 'd')
     .replace(/\s+/g, ' ');
 }
+/* v95: raspored jezika. Dug pritisak (400 ms) podiže jezik, pa se prevlači levo-desno; ostali se pomere (FLIP),
+   kod ivice red sam klizi. Brzo prevlačenje i dalje samo skroluje red. Dok traje prevlačenje, touchmove se zaustavlja
+   (passive:false), pa Chrome ne počne skrol i ne pošalje pointercancel. */
+let chipDrag = null;
+function attachChipDrag(chip){
+  let timer = null, x0 = 0, y0 = 0, pid = null;
+  const cancelTimer = ()=>{ clearTimeout(timer); timer = null; };
+  chip.addEventListener('contextmenu', (e)=> e.preventDefault());
+  chip.addEventListener('pointerdown', (e)=>{
+    if(e.target.closest('.rm') || chipDrag) return;
+    x0 = e.clientX; y0 = e.clientY; pid = e.pointerId; cancelTimer();
+    timer = setTimeout(()=>{ timer = null; startChipDrag(chip, x0, pid); }, 400);
+  });
+  chip.addEventListener('pointermove', (e)=>{
+    if(timer && (Math.abs(e.clientX - x0) > 8 || Math.abs(e.clientY - y0) > 8)) cancelTimer();
+  });
+  chip.addEventListener('pointerup', cancelTimer);
+  chip.addEventListener('pointercancel', cancelTimer);
+}
+function chipLayoutLeft(el){ return langsMine.getBoundingClientRect().left + el.offsetLeft - langsMine.scrollLeft; }
+function startChipDrag(chip, clientX, pointerId){
+  const r = chip.getBoundingClientRect();
+  chipDrag = { chip, grab: clientX - r.left, x: clientX, raf: 0, before: langs.map(l=> l.code).join('|') };
+  try{ chip.setPointerCapture(pointerId); }catch(e){}
+  chip.classList.add('lift'); langsMine.classList.add('dragging');
+  if(navigator.vibrate) navigator.vibrate(30);
+  placeChipDrag();
+  const loop = ()=>{
+    if(!chipDrag) return;
+    const m = langsMine.getBoundingClientRect(), edge = 36;
+    if(chipDrag.x < m.left + edge) langsMine.scrollLeft -= 8;
+    else if(chipDrag.x > m.right - edge) langsMine.scrollLeft += 8;
+    placeChipDrag();
+    chipDrag.raf = requestAnimationFrame(loop);
+  };
+  chipDrag.raf = requestAnimationFrame(loop);
+}
+function placeChipDrag(){
+  const d = chipDrag; if(!d) return;
+  const el = d.chip, w = el.offsetWidth;
+  const center = d.x - d.grab + w / 2;
+  const others = Array.from(langsMine.children).filter(c=> c !== el);
+  let target = null;
+  for(const c of others){ const cr = c.getBoundingClientRect(); if(center < cr.left + cr.width / 2){ target = c; break; } }
+  const cur = el.nextElementSibling;
+  if(target !== cur && !(target === null && cur === null)){
+    const first = new Map(others.map(c=> [c, c.getBoundingClientRect().left]));
+    langsMine.insertBefore(el, target);
+    others.forEach(c=>{
+      const dx = first.get(c) - c.getBoundingClientRect().left;
+      if(!dx) return;
+      c.style.transition = 'none'; c.style.transform = 'translateX(' + dx + 'px)';
+      requestAnimationFrame(()=>{ c.style.transition = 'transform .16s ease'; c.style.transform = ''; });
+    });
+  }
+  el.style.transform = 'translateX(' + (d.x - d.grab - chipLayoutLeft(el)) + 'px) translateY(-4px) scale(1.06)';
+}
+function endChipDrag(save){
+  const d = chipDrag; if(!d) return;
+  chipDrag = null; cancelAnimationFrame(d.raf);
+  d.chip.classList.remove('lift'); d.chip.style.transform = ''; langsMine.classList.remove('dragging');
+  if(!save){ renderLangsMine(); return; }
+  const order = Array.from(langsMine.children).map(c=> c.dataset.code);
+  const byCode = new Map(langs.map(l=> [l.code, l]));
+  const next = order.map(c=> byCode.get(c)).filter(Boolean);
+  if(next.length === langs.length && next.map(l=> l.code).join('|') !== d.before){
+    langs = next;
+    langsAfterChange();
+    showNote('Raspored jezika sačuvan');
+  }
+  renderLangsMine();
+}
+document.addEventListener('pointermove', (e)=>{ if(chipDrag){ chipDrag.x = e.clientX; } }, true);
+document.addEventListener('pointerup', ()=>{ if(chipDrag) endChipDrag(true); }, true);
+document.addEventListener('pointercancel', ()=>{ if(chipDrag) endChipDrag(false); }, true);
+langsMine.addEventListener('touchmove', (e)=>{ if(chipDrag && e.cancelable) e.preventDefault(); }, { passive:false });
 function renderLangsList(){
   const q = normSearch(langsSearch.value.trim());
   const have = new Set(langs.map(l=> l.code.toLowerCase()));

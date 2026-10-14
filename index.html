@@ -1019,7 +1019,7 @@ document.getElementById('exitLeaveBtn').onclick = ()=>{
 };
 
 /* ============ podešavanja: pločice i podekrani ============ */
-const APP_VERSION = 91;
+const APP_VERSION = 92;
 let settingsSubOpen = null; // id otvorenog podekrana ili null (pločice)
 function jezikWord(n){ return (n % 10 === 1 && n % 100 !== 11) ? 'jezik' : 'jezika'; }
 function renderSettingsTiles(){
@@ -1985,13 +1985,16 @@ function friendlyErrorMessage(err){
     return 'API ključ nije važeći — provera u podešavanjima.';
   }
   if(/API greška 429/.test(msg)){
-    return 'Dostignut je dnevni limit poziva — probaj kasnije ili sutra.';
+    return 'Google je odbio zahtev zbog ograničenja broja zahteva (pokušano 4 puta, i rezervnim modelom). Sačekaj malo pa probaj ponovo.';
+  }
+  if(/API greška 408/.test(msg)){
+    return 'Google AI je trenutno preopterećen (pokušano 4 puta, i rezervnim modelom). Probaj ponovo za par minuta.';
   }
   if(/API greška 400/.test(msg)){
     return 'Server nije prihvatio zahtev — probaj ponovo.';
   }
   if(/API greška 5\d\d/.test(msg)){
-    return 'Server trenutno ima problem — probaj ponovo za malo.';
+    return 'Google AI je trenutno preopterećen (pokušano 4 puta, i rezervnim modelom). Probaj ponovo za par minuta.';
   }
   if(/Model nije vratio|Prazan odgovor/.test(msg)){
     return 'Model nije vratio odgovor — probaj ponovo.';
@@ -2029,7 +2032,7 @@ JSON: {"cleaned":"...","translation":"..."}`;
      a server za responseFormat.text traži nabrojanu vrednost APPLICATION_JSON (potvrđeno u Arhivi i Troškovima).
      Redom: 1) responseFormat + APPLICATION_JSON, 2) responseMimeType + responseJsonSchema, 3) stari zahtev bez šeme.
      Na sledeći oblik se prelazi SAMO kad server odbije zahtev (400) — odmah, bez pauze i bez trošenja ponovnog pokušaja.
-     Tajm-aut i 5xx ponavljaju ISTI oblik (do 3 puta), kao i ranije. */
+     Tajm-aut, 408, 429 i 5xx ponavlja geminiFetch (v92: glavni pa rezervni model). */
   const schema = {
     type: 'object',
     properties: {
@@ -2045,63 +2048,79 @@ JSON: {"cleaned":"...","translation":"..."}`;
     { mode: 'bez', gc: { responseMimeType: 'application/json', thinkingConfig: thinking } }
   ];
 
-  const maxAttempts = 3;
-  const timeoutMs = 20000;
   const rejections = [];
-  let formIdx = 0;
-  let lastErr;
+  for(let formIdx = 0; formIdx < forms.length; formIdx++){
+    const resp = await geminiFetch({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: forms[formIdx].gc
+    });
+    if(!resp.ok){
+      const errText = await resp.text().catch(()=> '');
+      if(resp.status === 400 && formIdx < forms.length - 1){
+        let msg = errText;
+        try{ const j = JSON.parse(errText); if(j && j.error && j.error.message) msg = j.error.message; }catch(e){}
+        rejections.push(String(msg).slice(0, 300));
+        continue; // sledeći oblik odmah
+      }
+      const err = new Error(`API greška ${resp.status}: ${errText.slice(0,200)}`);
+      err.status = resp.status;
+      throw err;
+    }
+    saveAiFormatStatus(forms[formIdx].mode, rejections);
+    const data = await resp.json();
+    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if(!raw) throw new Error('Prazan odgovor od modela.');
+    let parsed;
+    try{ parsed = JSON.parse(raw); }
+    catch(e){ throw new Error('Model nije vratio ispravan JSON.'); }
+    const translation = (parsed && typeof parsed.translation === 'string') ? parsed.translation.trim() : '';
+    if(!translation) throw new Error('Model nije vratio prevod.');
+    return { cleaned: (typeof parsed.cleaned === 'string' && parsed.cleaned) ? parsed.cleaned : rawText, translation };
+  }
+}
 
-  for(let attempt = 1; attempt <= maxAttempts; ){
+/* v92: Gemini poziv po uzoru na Troškove v23 / Apoteku v45 (zvanično, ai.google.dev 14.10.2026):
+   glavni gemini-3.5-flash-lite → ~1 s glavni → ~2 s rezervni gemini-3.6-flash → ~4 s rezervni.
+   Ponavljaju se samo 408, 429, 5xx i tajm-aut (20 s); novi pokušaj se ne počinje posle 45 s ukupno.
+   Ostali odgovori (i 400 zbog oblika odgovora) vraćaju se pozivaocu odmah. Ključ ide u zaglavlju x-goog-api-key.
+   Oba modela primaju thinkingLevel 'minimal'; temperature se ne šalje. */
+const GEMINI_MODEL = 'gemini-3.5-flash-lite';
+const GEMINI_MODEL_BACKUP = 'gemini-3.6-flash';
+const GEMINI_RETRY_STATUS = [408, 429, 500, 502, 503, 504];
+const GEMINI_TIMEOUT_MS = 20000;
+const GEMINI_TOTAL_MS = 45000;
+function geminiPause(ms){ return new Promise(r => setTimeout(r, ms + Math.floor(Math.random()*400))); }
+async function geminiFetch(body){
+  const plan = [[GEMINI_MODEL,0],[GEMINI_MODEL,1000],[GEMINI_MODEL_BACKUP,2000],[GEMINI_MODEL_BACKUP,4000]];
+  const t0 = Date.now();
+  let last = 0;
+  for(let i = 0; i < plan.length; i++){
+    if(i > 0 && Date.now() - t0 > GEMINI_TOTAL_MS) break;
+    if(plan[i][1]) await geminiPause(plan[i][1]);
     const controller = new AbortController();
-    const timeoutId = setTimeout(()=> controller.abort(), timeoutMs);
+    const timeoutId = setTimeout(()=> controller.abort(), GEMINI_TIMEOUT_MS);
+    let resp;
     try{
-      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`, {
+      resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + plan[i][0] + ':generateContent', {
         method:'POST',
-        headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: forms[formIdx].gc
-        }),
+        headers:{ 'Content-Type':'application/json', 'x-goog-api-key': apiKey },
+        body: JSON.stringify(body),
         signal: controller.signal
       });
-      clearTimeout(timeoutId);
-      if(!resp.ok){
-        const errText = await resp.text();
-        if(resp.status === 400 && formIdx < forms.length - 1){
-          let msg = errText;
-          try{ const j = JSON.parse(errText); if(j && j.error && j.error.message) msg = j.error.message; }catch(e){}
-          rejections.push(String(msg).slice(0, 300));
-          formIdx++;
-          continue; // sledeći oblik odmah; brojač ponovnih pokušaja se ne troši
-        }
-        const err = new Error(`API greška ${resp.status}: ${errText.slice(0,200)}`);
-        err.status = resp.status;
-        throw err;
-      }
-      saveAiFormatStatus(forms[formIdx].mode, rejections);
-      const data = await resp.json();
-      const raw = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if(!raw) throw new Error('Prazan odgovor od modela.');
-      let parsed;
-      try{ parsed = JSON.parse(raw); }
-      catch(e){ throw new Error('Model nije vratio ispravan JSON.'); }
-      const translation = (parsed && typeof parsed.translation === 'string') ? parsed.translation.trim() : '';
-      if(!translation) throw new Error('Model nije vratio prevod.');
-      return { cleaned: (typeof parsed.cleaned === 'string' && parsed.cleaned) ? parsed.cleaned : rawText, translation };
     }catch(err){
       clearTimeout(timeoutId);
-      const isTimeout = err.name === 'AbortError';
-      const isOverloaded = err.status >= 500 && err.status < 600;
-      lastErr = isTimeout ? new Error('Server ne odgovara (tajm-aut).') : err;
-      if((isTimeout || isOverloaded) && attempt < maxAttempts){
-        await new Promise(r => setTimeout(r, attempt * 1500)); // kratka pauza pre ponovnog pokušaja
-        attempt++;
-        continue;
-      }
-      throw lastErr;
+      if(err.name === 'AbortError'){ last = 'timeout'; continue; }
+      throw err;
     }
+    clearTimeout(timeoutId);
+    if(GEMINI_RETRY_STATUS.indexOf(resp.status) < 0) return resp;
+    last = resp.status;
+    await resp.text().catch(()=> '');
   }
-  throw lastErr;
+  if(last === 'timeout') throw new Error('Server ne odgovara (tajm-aut).');
+  const err = new Error(`API greška ${last}: posle više pokušaja`);
+  err.status = last;
+  throw err;
 }
 
 /* ============ text to speech ============ */

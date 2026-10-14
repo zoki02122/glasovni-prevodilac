@@ -95,7 +95,6 @@
     color: var(--accent-text); border-color: transparent; font-weight:600;
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.35);
   }
-  .lang-btn.add{ color: var(--accent); border-color: var(--accent-dim); }
   .lang-btn:disabled, .side-toggle:disabled{ opacity:0.4; cursor:not-allowed; }
 
   .text-row{ display:flex; width:100%; box-sizing:border-box; padding:0 8px; pointer-events:none; margin-bottom:12px; }
@@ -364,11 +363,6 @@
   .field input.masked{ -webkit-text-security: disc; text-security: disc; }
   .field-hint{ font-size:12.5px; color:var(--text-dim); margin-top:4px; }
   .modal-actions{ display:flex; gap:10px; margin-top:6px; }
-  .lang-list-item{
-    display:flex; align-items:center; justify-content:space-between;
-    padding:10px 0; border-bottom:1px solid var(--border);
-  }
-  .lang-list-item .rm{ color: var(--danger); background:none; border:none; font-size:14px; }
   .modal hr{ border:none; border-top:1px solid var(--border); margin:18px 0; }
   .slider-row{ display:flex; align-items:center; gap:10px; }
   .theme-row{ display:flex; gap:10px; flex-wrap:wrap; }
@@ -442,6 +436,31 @@
   .trash-bar .btn{ flex:1; }
   .trash-bar .trash-purge{ background:transparent; border:1.5px solid var(--danger); color:var(--danger); }
   #secTrash{ padding-bottom:84px; }
+
+  /* ===== v94: prozor „Jezici“ (🌐 u zaglavlju), otvara se ispod zaglavlja ===== */
+  #langsOverlay{ z-index:56; }
+  #langsOverlay .modal{ transform:translateX(-50%); padding:14px 14px 16px; }
+  .lp-lbl{ font-size:12px; font-weight:700; color:var(--text-dim); letter-spacing:.3px; margin:6px 2px 6px; text-transform:uppercase; }
+  .lp-lbl span{ text-transform:none; font-weight:600; }
+  .lp-mine{ display:flex; flex-wrap:nowrap; gap:8px; margin:0 -14px 12px; padding:0 14px 4px; overflow-x:auto; scrollbar-width:none;
+    -webkit-mask-image:linear-gradient(90deg,#000 88%,transparent); mask-image:linear-gradient(90deg,#000 88%,transparent); }
+  .lp-mine::-webkit-scrollbar{ display:none; }
+  .lp-chip{ flex:none; display:flex; align-items:center; gap:8px; padding:7px 8px 7px 14px; border-radius:999px; background:var(--bg-card);
+    border:1px solid var(--border); color:var(--text); font-family:'Barlow', sans-serif; font-size:15px; font-weight:600; white-space:nowrap; }
+  .lp-chip.only{ padding-right:14px; }
+  .lp-chip .rm{ width:26px; height:26px; flex:none; border-radius:50%; border:none; padding:0; background:#FF0000; color:#fff;
+    display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; cursor:pointer; }
+  .lp-search{ width:100%; box-sizing:border-box; padding:11px 14px; border-radius:12px; border:1px solid var(--border); background:var(--bg-card);
+    color:var(--text); font-family:'Barlow', sans-serif; font-size:16px; margin-bottom:8px; }
+  .lp-list{ border:1px solid var(--border); border-radius:12px; background:var(--bg-card); overflow:hidden; }
+  .lp-row{ display:flex; justify-content:space-between; align-items:center; width:100%; padding:12px 14px; border:none; border-bottom:1px solid var(--border);
+    background:none; color:var(--text); font-family:'Barlow', sans-serif; font-size:15px; text-align:left; cursor:pointer; }
+  .lp-row:last-child{ border-bottom:none; }
+  .lp-row b{ color:var(--accent-bright); font-size:22px; font-weight:600; line-height:1; }
+  .lp-none{ padding:14px; color:var(--text-dim); font-size:14px; text-align:center; }
+  .lp-manual-btn{ display:block; width:100%; margin-top:10px; padding:8px; background:none; border:none; font-family:'Barlow', sans-serif;
+    font-size:14px; font-weight:600; color:var(--accent); cursor:pointer; }
+  #langsManual{ margin-top:8px; }
 </style>
 </head>
 <body>
@@ -455,6 +474,7 @@
         <button class="gear-btn" id="muteBtn" aria-label="Isključi zvuk">🔊</button>
         <button class="gear-btn" id="openSavedBtn" aria-label="Sačuvano">⭐</button>
         <button class="gear-btn" id="quickClearBtn" aria-label="Obriši razgovor">🗑</button>
+        <button class="gear-btn" id="langsBtn" aria-label="Jezici">🌐</button>
         <button class="gear-btn" id="settingsBtn" aria-label="Podešavanja">⚙</button>
       </div>
     </div>
@@ -519,7 +539,7 @@
     <div id="settingsTiles">
       <button class="set-tile" data-sub="secTheme" data-title="Izgled"><span class="tile-icon">🎨</span><span class="tile-text"><span class="tile-title">Izgled</span><span class="tile-sub" id="tileSubTheme"></span></span><span class="tile-chev">›</span></button>
       <button class="set-tile" data-sub="secApi" data-title="Gemini API ključ"><span class="tile-icon">🔑</span><span class="tile-text"><span class="tile-title">Gemini API ključ</span><span class="tile-sub" id="tileSubKey"></span></span><span class="tile-chev">›</span></button>
-      <button class="set-tile" data-sub="secLang" data-title="Jezici"><span class="tile-icon">🌐</span><span class="tile-text"><span class="tile-title">Jezici</span><span class="tile-sub" id="tileSubLang"></span></span><span class="tile-chev">›</span></button>
+      <button class="set-tile" id="langsTileBtn"><span class="tile-icon">🌐</span><span class="tile-text"><span class="tile-title">Jezici</span><span class="tile-sub" id="tileSubLang"></span></span><span class="tile-chev">›</span></button>
       <button class="set-tile" data-sub="secVoices" data-title="Glas i izgovor"><span class="tile-icon">🔊</span><span class="tile-text"><span class="tile-title">Glas i izgovor</span><span class="tile-sub" id="tileSubVoice"></span></span><span class="tile-chev">›</span></button>
       <button class="set-tile" data-sub="secBackup" data-title="Bekap podataka"><span class="tile-icon">💾</span><span class="tile-text"><span class="tile-title">Bekap podataka</span><span class="tile-sub" id="tileSubBackup"></span></span><span class="tile-chev">›</span></button>
       <button class="set-tile" data-sub="secTrash" data-title="Korpa"><span class="tile-icon">♻️</span><span class="tile-text"><span class="tile-title">Korpa</span><span class="tile-sub" id="tileSubTrash"></span></span><span class="tile-chev">›</span></button>
@@ -572,34 +592,6 @@
         <span id="saveApiConfirm" style="display:none; font-size:13px; color:var(--accent); margin-top:8px; text-align:center;">Sačuvano ✓</span>
     </div>
 
-    <div class="set-sub" id="secLang" hidden>
-        <div id="langListWrap"></div>
-
-        <div class="field-hint" style="margin:12px 0 8px;">Dodaj novi jezik sa liste:</div>
-        <div class="field">
-          <label>🔍 Pretraži jezik</label>
-          <input type="text" id="langSearchInput" placeholder="Ukucaj naziv jezika..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-        </div>
-        <div class="field">
-          <label>Jezik</label>
-          <select id="langSelect"></select>
-        </div>
-
-        <div id="manualLangFields" style="display:none;">
-          <div class="field">
-            <label>Naziv jezika</label>
-            <input type="text" id="newLangLabel" placeholder="Naziv" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-          </div>
-          <div class="field">
-            <label>Jezički kod (BCP-47, npr. el-GR)</label>
-            <input type="text" id="newLangCode" placeholder="npr. el-GR (upiši svoj kod)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-            <div class="field-hint">Primeri: el-GR grčki, es-ES španski, it-IT italijanski, de-DE nemački.</div>
-          </div>
-        </div>
-        <div class="field-error" id="addLangError">Siva reč u polju je samo primer — upiši svoj naziv i kod pre dodavanja.</div>
-        <button class="btn btn-ghost" style="width:100%;" id="addLangBtn">+ Dodaj jezik</button>
-    </div>
-
     <div class="set-sub" id="secVoices" hidden>
         <div class="field">
           <label>Brzina izgovora <span id="rateValueLabel" style="color:var(--accent); font-weight:600;">50</span></label>
@@ -647,6 +639,35 @@
         </div>
     </div>
 
+  </div>
+</div>
+
+<!-- v94: Jezici (🌐) -->
+<div class="modal-overlay" id="langsOverlay" style="display:none;">
+  <div class="modal" id="langsModal">
+    <div class="modal-header">
+      <h2>Jezici</h2>
+      <button class="modal-close" id="langsXBtn" aria-label="Zatvori">✕</button>
+    </div>
+    <div class="lp-lbl">U redu jezika <span>· ✕ uklanja · prevuci levo-desno</span></div>
+    <div class="lp-mine" id="langsMine"></div>
+    <div class="lp-lbl">Dodaj jezik <span>· dodir dodaje</span></div>
+    <input type="text" id="langsSearch" class="lp-search" placeholder="🔍 Pretraži jezik..." enterkeyhint="search" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+    <div class="lp-list" id="langsList"></div>
+    <button type="button" class="lp-manual-btn" id="langsManualBtn">Nema ga na spisku? Upiši ručno ›</button>
+    <div id="langsManual" hidden>
+      <div class="field">
+        <label>Naziv jezika</label>
+        <input type="text" id="newLangLabel" placeholder="Naziv" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+      </div>
+      <div class="field">
+        <label>Jezički kod (BCP-47, npr. el-GR)</label>
+        <input type="text" id="newLangCode" placeholder="npr. el-GR (upiši svoj kod)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        <div class="field-hint">Primeri: el-GR grčki, es-ES španski, it-IT italijanski, de-DE nemački.</div>
+      </div>
+      <div class="field-error" id="addLangError">Siva reč u polju je samo primer — upiši svoj naziv i kod pre dodavanja.</div>
+      <button class="btn btn-primary" style="width:100%;" id="addLangBtn">+ Dodaj jezik</button>
+    </div>
   </div>
 </div>
 
@@ -759,7 +780,6 @@ const ALL_LANGS = [
   { label:'Jermenski', code:'hy-AM' },
   { label:'Azerbejdžanski', code:'az-AZ' },
 ];
-const MANUAL_LANG_VALUE = '__manual__';
 const SR_CODE = 'sr-RS';
 
 function safeGetItem(key){
@@ -1158,10 +1178,6 @@ const apiKeyInput = document.getElementById('apiKeyInput');
 const toggleApiKeyBtn = document.getElementById('toggleApiKeyBtn');
 const rateSlider = document.getElementById('rateSlider');
 const rateValueLabel = document.getElementById('rateValueLabel');
-const langListWrap = document.getElementById('langListWrap');
-const langSelect = document.getElementById('langSelect');
-const langSearchInput = document.getElementById('langSearchInput');
-const manualLangFields = document.getElementById('manualLangFields');
 const newLangLabel = document.getElementById('newLangLabel');
 const newLangCode = document.getElementById('newLangCode');
 const addLangBtn = document.getElementById('addLangBtn');
@@ -1285,11 +1301,6 @@ function renderLangRow(){
     b.onclick = ()=>{ selectedLangCode = l.code; saveSelected(); renderLangRow(); updateInputLangHint(); };
     langRow.appendChild(b);
   });
-  const addBtn = document.createElement('button');
-  addBtn.className = 'lang-btn add';
-  addBtn.textContent = '+ Jezik';
-  addBtn.onclick = openSettings;
-  langRow.appendChild(addBtn);
 }
 
 function renderDirection(){
@@ -1328,6 +1339,11 @@ window.addEventListener('popstate', ()=>{
   if(suppressNextGlobalPopstate){ suppressNextGlobalPopstate = false; return; }
   if(exitConfirmed){ return; }
   if(confirmOverlay.style.display === 'flex'){ return; } // dijalog za potvrdu sam obrađuje Back, ostalo ne dirati
+  if(langsOverlay.style.display === 'flex'){
+    if(document.activeElement && langsOverlay.contains(document.activeElement)) document.activeElement.blur();
+    langsOverlay.style.display = 'none';
+    return;
+  }
   if(document.activeElement === voiceInput){ voiceInput.blur(); exitTrapArmed = false; armExitTrap(); return; }
   if(correctingActive){
     correctingActive = false;
@@ -1395,7 +1411,7 @@ document.getElementById('exitLeaveBtn').onclick = ()=>{
 };
 
 /* ============ podešavanja: pločice i podekrani ============ */
-const APP_VERSION = 93;
+const APP_VERSION = 94;
 let settingsSubOpen = null; // id otvorenog podekrana ili null (pločice)
 function jezikWord(n){ return (n % 10 === 1 && n % 100 !== 11) ? 'jezik' : 'jezika'; }
 function renderSettingsTiles(){
@@ -1442,10 +1458,6 @@ function openSettings(){
   backupDaysInput.value = String(backupDays);
   backupResult.style.display = 'none';
   updateBackupInfo();
-  renderLangList();
-  langSearchInput.value = '';
-  renderLangSelect();
-  addLangError.style.display = 'none';
   renderVoiceLangSelect();
   showSettingsTiles();
   renderAiFormatHint();
@@ -1502,83 +1514,132 @@ rateSlider.addEventListener('change', ()=>{
   safeSetItem('vp_rate', String(speechRate));
 });
 
-function renderLangList(){
-  langListWrap.innerHTML = '';
-  langs.forEach((l, i)=>{
-    const row = document.createElement('div');
-    row.className = 'lang-list-item';
-    row.innerHTML = `<span>${escapeHtml(l.label)} <span style="color:var(--text-dim); font-size:13px;">(${escapeHtml(l.code)})</span></span>`;
-    const rm = document.createElement('button');
-    rm.className = 'rm'; rm.textContent = 'Ukloni';
-    rm.onclick = async ()=>{
-      if(langs.length<=1){ return; }
-      const ok = await customConfirm('Ukloni jezik?', `Ukloniti "${l.label}" sa liste?`);
-      if(!ok) return;
-      langs.splice(i,1);
-      if(selectedLangCode===l.code) selectedLangCode = langs[0] && langs[0].code;
-      saveLangs(); saveSelected();
-      renderLangList(); renderLangRow(); renderLangSelect();
-      renderSettingsTiles();
-      updateInputLangHint();
-    };
-    row.appendChild(rm);
-    langListWrap.appendChild(row);
+/* ============ v94: prozor „Jezici“ (🌐 u zaglavlju i Podešavanja → Jezici) ============ */
+const langsOverlay = document.getElementById('langsOverlay');
+const langsModal = document.getElementById('langsModal');
+const langsMine = document.getElementById('langsMine');
+const langsList = document.getElementById('langsList');
+const langsSearch = document.getElementById('langsSearch');
+const langsManual = document.getElementById('langsManual');
+/* prozor stoji odmah ispod zaglavlja (ili ispod naslova Podešavanja kad je otvoren odande), kao u ostalim aplikacijama */
+function placeLangsPop(){
+  if(langsOverlay.style.display !== 'flex') return;
+  const anchor = settingsOverlay.style.display === 'flex' ? settingsOverlay.querySelector('.set-head') : document.querySelector('header');
+  const top = Math.max(0, Math.round(anchor.getBoundingClientRect().bottom));
+  const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+  langsOverlay.style.top = top + 'px';
+  langsModal.style.top = (top + 8) + 'px';
+  langsModal.style.maxHeight = Math.max(200, vh - top - 16) + 'px';
+}
+window.addEventListener('resize', placeLangsPop);
+if(window.visualViewport) window.visualViewport.addEventListener('resize', placeLangsPop);
+new MutationObserver(placeLangsPop).observe(document.body, { attributes:true, attributeFilter:['class'] });
+function langsAfterChange(){
+  saveLangs(); saveSelected();
+  renderLangRow(); updateInputLangHint(); renderVoiceLangSelect(); renderSettingsTiles();
+  /* red jezika na početnom ekranu se pomeri do izabranog (samo vodoravno) */
+  const a = langRow.querySelector('.lang-btn.active');
+  if(a) langRow.scrollLeft = Math.max(0, a.offsetLeft - langRow.offsetLeft - (langRow.clientWidth - a.offsetWidth) / 2);
+}
+function renderLangsMine(){
+  langsMine.innerHTML = '';
+  langs.forEach(l=>{
+    const chip = document.createElement('span');
+    chip.className = 'lp-chip' + (langs.length <= 1 ? ' only' : '');
+    chip.textContent = l.label;
+    if(langs.length > 1){
+      const rm = document.createElement('button');
+      rm.type = 'button'; rm.className = 'rm'; rm.textContent = '✕';
+      rm.setAttribute('aria-label', 'Ukloni ' + l.label);
+      rm.onclick = async ()=>{
+        const ok = await customConfirm('Ukloni jezik?', `Ukloniti "${l.label}" iz reda jezika? Razgovor i Sačuvano ostaju netaknuti.`, 'Ukloni');
+        if(!ok) return;
+        const i = langs.findIndex(x=> x.code === l.code);
+        if(i < 0 || langs.length <= 1) return;
+        langs.splice(i, 1);
+        if(selectedLangCode === l.code) selectedLangCode = langs[0].code;
+        langsAfterChange(); renderLangsPop();
+        showNote('Uklonjen: ' + l.label);
+      };
+      chip.appendChild(rm);
+    }
+    langsMine.appendChild(chip);
   });
 }
-function renderLangSelect(){
-  const addedCodes = langs.map(l=>l.code);
-  const filterText = langSearchInput.value.trim().toLowerCase();
-  const available = ALL_LANGS.filter(l=>{
-    if(addedCodes.includes(l.code)) return false;
-    if(filterText && !l.label.toLowerCase().startsWith(filterText)) return false;
-    return true;
+function renderLangsList(){
+  const q = langsSearch.value.trim().toLowerCase();
+  const have = new Set(langs.map(l=> l.code.toLowerCase()));
+  /* i podrazumevani (Ruski, Turski, Engleski) — da uklonjeni može da se vrati sa spiska */
+  const catalog = DEFAULT_LANGS.concat(ALL_LANGS).filter((l, i, a)=> a.findIndex(x=> x.code.toLowerCase() === l.code.toLowerCase()) === i);
+  const avail = catalog.filter(l=>{
+    if(have.has(l.code.toLowerCase())) return false;
+    if(!q) return true;
+    const n = l.label.toLowerCase();
+    return n.startsWith(q) || n.includes(' ' + q) || n.includes('(' + q);
+  }).sort((a, b)=> a.label.localeCompare(b.label, 'sr-Latn'));
+  langsList.innerHTML = '';
+  if(!avail.length){
+    const d = document.createElement('div'); d.className = 'lp-none';
+    d.textContent = q ? 'Nema jezika za tu pretragu — upiši ga ručno.' : 'Svi jezici sa spiska su već dodati.';
+    langsList.appendChild(d);
+    return;
+  }
+  avail.forEach(l=>{
+    const r = document.createElement('button');
+    r.type = 'button'; r.className = 'lp-row';
+    r.innerHTML = `<span>${escapeHtml(l.label)}</span><b>+</b>`;
+    r.onclick = ()=> addLanguage(l.label, l.code);
+    langsList.appendChild(r);
   });
-  langSelect.innerHTML = '';
-  available.forEach(l=>{
-    const opt = document.createElement('option');
-    opt.value = l.code;
-    opt.textContent = l.label;
-    langSelect.appendChild(opt);
-  });
-  const manualOpt = document.createElement('option');
-  manualOpt.value = MANUAL_LANG_VALUE;
-  manualOpt.textContent = 'Drugi jezik (unesi ručno)';
-  langSelect.appendChild(manualOpt);
-  manualLangFields.style.display = 'none';
-  addLangError.style.display = 'none';
-  addLangError.textContent = 'Siva reč u polju je samo primer — upiši svoj naziv i kod pre dodavanja.';
 }
-langSearchInput.addEventListener('input', renderLangSelect);
-langSelect.onchange = ()=>{
-  manualLangFields.style.display = (langSelect.value === MANUAL_LANG_VALUE) ? 'block' : 'none';
+function renderLangsPop(){ renderLangsMine(); renderLangsList(); }
+/* dodat jezik odmah postaje aktivan (Zoran 14.10.) */
+function addLanguage(label, code){
+  if(langs.some(l=> l.code.toLowerCase() === code.toLowerCase())) return false;
+  langs.push({ label, code });
+  selectedLangCode = code;
+  langsAfterChange(); renderLangsPop();
+  langsMine.scrollLeft = langsMine.scrollWidth;
+  showNote(`Dodat: ${label} — izabran`);
+  return true;
+}
+function openLangsPop(){
+  langsSearch.value = '';
+  langsManual.hidden = true;
+  newLangLabel.value = ''; newLangCode.value = '';
   addLangError.style.display = 'none';
+  renderLangsPop();
+  openModal(langsOverlay, 'langs');
+  langsModal.scrollTop = 0;
+  placeLangsPop();
+}
+langsSearch.addEventListener('input', renderLangsList);
+document.getElementById('langsBtn').onclick = openLangsPop;
+document.getElementById('langsTileBtn').onclick = openLangsPop;
+document.getElementById('langsXBtn').onclick = ()=> closeModal(langsOverlay);
+langsOverlay.addEventListener('click', (e)=>{ if(e.target === langsOverlay) closeModal(langsOverlay); });
+document.getElementById('langsManualBtn').onclick = ()=>{
+  langsManual.hidden = !langsManual.hidden;
+  addLangError.style.display = 'none';
+  if(!langsManual.hidden) setTimeout(()=> langsManual.scrollIntoView({ block:'nearest', behavior:'smooth' }), 50);
 };
-
 addLangBtn.onclick = ()=>{
-  if(langSelect.value === MANUAL_LANG_VALUE){
-    const label = newLangLabel.value.trim();
-    const code = newLangCode.value.trim();
-    if(!label || !code){
-      addLangError.style.display = 'block';
-      addLangError.textContent = 'Siva reč u polju je samo primer — upiši svoj naziv i kod pre dodavanja.';
-      return;
-    }
-    if(langs.some(l=>l.code.toLowerCase()===code.toLowerCase())){
-      addLangError.style.display = 'block';
-      addLangError.textContent = 'Taj jezički kod je već na listi.';
-      return;
-    }
-    langs.push({label, code});
-    newLangLabel.value=''; newLangCode.value='';
-  } else {
-    const chosen = ALL_LANGS.find(l=>l.code===langSelect.value);
-    if(!chosen) return;
-    langs.push({label:chosen.label, code:chosen.code});
+  const label = newLangLabel.value.trim();
+  const code = newLangCode.value.trim();
+  if(!label || !code){
+    addLangError.style.display = 'block';
+    addLangError.textContent = 'Siva reč u polju je samo primer — upiši svoj naziv i kod pre dodavanja.';
+    return;
+  }
+  if(langs.some(l=> l.code.toLowerCase() === code.toLowerCase())){
+    addLangError.style.display = 'block';
+    addLangError.textContent = 'Taj jezički kod je već na listi.';
+    return;
   }
   addLangError.style.display = 'none';
-  saveLangs();
-  renderLangList(); renderLangRow(); renderLangSelect();
-  renderSettingsTiles();
+  newLangLabel.value = ''; newLangCode.value = '';
+  langsManual.hidden = true;
+  addLanguage(label, code);
 };
 async function clearHistory(){
   const n = chatHistory.length;
@@ -1765,7 +1826,7 @@ function applyBackup(b){
   rateSlider.value = speechRate; updateRateValueLabel();
   backupDaysInput.value = String(backupDays);
   renderLangRow(); renderDirection();
-  renderLangList(); renderLangSelect(); renderVoiceLangSelect();
+  renderVoiceLangSelect(); if(langsOverlay.style.display === 'flex') renderLangsPop();
   renderFeed(); renderSettingsTiles(); updateBackupBar();
   return added;
 }

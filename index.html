@@ -1922,10 +1922,11 @@ let longPressTimer = null;
 let longPressFired = false;
 
 function getVisibleSavedItems(){
-  const filter = savedSearchInput.value.trim().toLowerCase();
+  /* v94: ista univerzalna pretraga kao za jezike (velika/mala slova, ćirilica = latinica, bez kvačica), bilo gde u tekstu */
+  const filter = normSearch(savedSearchInput.value.trim());
   let items = savedItems.filter(it=>{
     if(!filter) return true;
-    return (it.name + ' ' + it.cleanedText + ' ' + it.translatedText).toLowerCase().includes(filter);
+    return normSearch(it.name + ' ' + it.cleanedText + ' ' + it.translatedText).includes(filter);
   });
   items.sort((a,b)=>{
     if(a.pinned !== b.pinned) return a.pinned ? -1 : 1;

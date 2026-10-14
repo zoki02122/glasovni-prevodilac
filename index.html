@@ -1418,7 +1418,7 @@ document.getElementById('exitLeaveBtn').onclick = ()=>{
 };
 
 /* ============ podešavanja: pločice i podekrani ============ */
-const APP_VERSION = 96;
+const APP_VERSION = 97;
 let settingsSubOpen = null; // id otvorenog podekrana ili null (pločice)
 function jezikWord(n){ return (n % 10 === 1 && n % 100 !== 11) ? 'jezik' : 'jezika'; }
 function renderSettingsTiles(){
@@ -2393,7 +2393,7 @@ function setControlsDisabled(disabled){
 async function submitVoiceInput(){
   if(recState !== 'idle') return;
   const transcript = voiceInput.value.trim();
-  if(!transcript){ voiceInput.blur(); return; } // v96: Pošalji (ili Enter) na praznom polju zatvara polje i tastaturu
+  if(!transcript){ viHideKeepKeyboard(); return; } // v97: Pošalji (ili Enter) na praznom polju skloni polje, tastatura ostaje
 
   if(!apiKey){
     showNote('Nedostaje Gemini API ključ — dodaj ga u podešavanjima (⚙).', { warn:true });
@@ -2507,8 +2507,8 @@ document.addEventListener('pointerdown', (e)=>{
 voiceInput.addEventListener('keydown', (e)=>{
   if(e.key === 'Enter'){ e.preventDefault(); submitVoiceInput(); }
 });
-/* v96 (Zoran 14.10.): zatvaranje kad je polje PRAZNO.
-   ⌫ na tastaturi: ako je prevod na ekranu, zatvara se samo prevod (tastatura ostaje); inače se zatvaraju polje i tastatura.
+/* v96/v97 (Zoran 14.10.): zatvaranje kad je polje PRAZNO — polje se skloni, tastatura OSTAJE (v97).
+   ⌫ na tastaturi: ako je prevod na ekranu, zatvara se samo prevod; inače se skloni polje; kad je već sklonjeno, ništa.
    ⌫ se hvata kao u Apoteci v47 (kod Zorana potvrđeno na praznom polju): keydown 'Backspace' ili beforeinput delete*.
    Ako stignu oba za isti pritisak, ili se ⌫ drži (ponavljanje), radi se samo jedna radnja (250 ms posle poslednjeg).
    Drugi dodir na već otvoreno prazno polje ga zatvara (pointerdown dok je fokusirano + click), kao „drugi dodir“ u Apoteci v47. */
@@ -2519,7 +2519,14 @@ function viEmptyBackspace(){
   viEmptyBsAt = now;            // držanje ⌫ (ponavljanje tastera) produžava zaštitu: jedno držanje = jedna radnja
   if(repeat) return;
   if(currentPanel.style.display !== 'none'){ dropCurrentPanel(); return; }
-  voiceInput.blur();
+  viHideKeepKeyboard();
+}
+/* v97 (Zoran 14.10.: „tastatura treba da ostane otvorena“): prazno polje se skloni, a ostaje u fokusu — isto stanje kao posle slanja.
+   Prvo slovo ga vraća (showVoiceInputAgain). Tastatura se spušta kao i ranije: dodir van polja, korak nazad, strelica na tastaturi. */
+function viHideKeepKeyboard(){
+  if(document.activeElement !== voiceInput) return;
+  voiceInput.value = '';
+  document.body.classList.add('vi-hidden');
 }
 voiceInput.addEventListener('keydown', (e)=>{
   if(e.key === 'Backspace' && voiceInput.value === ''){ e.preventDefault(); viEmptyBackspace(); }
@@ -2530,7 +2537,7 @@ voiceInput.addEventListener('beforeinput', (e)=>{
 let viWasFocused = false;
 voiceInput.addEventListener('pointerdown', ()=>{ viWasFocused = (document.activeElement === voiceInput); });
 voiceInput.addEventListener('click', ()=>{
-  if(viWasFocused && voiceInput.value.trim() === '') voiceInput.blur();
+  if(viWasFocused && voiceInput.value.trim() === '') viHideKeepKeyboard();
   viWasFocused = false;
 });
 

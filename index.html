@@ -481,6 +481,13 @@
   .guide-item[open] summary{ color:var(--accent-bright); }
   .guide-item p{ margin:0; padding:0 14px 12px; font-size:14.5px; line-height:1.55; color:var(--text); }
   .guide-item p:last-child{ padding-bottom:16px; }
+
+  /* ===== v99: polja sa „Sačuvaj“ pored (broj dana bekapa i korpe) ===== */
+  .save-row{ display:flex; gap:8px; align-items:stretch; }
+  .save-row input{ flex:1; min-width:0; }
+  .save-mini{ flex:none; padding:10px 16px; }
+  .btn.save-off, .btn:disabled.save-mini{ opacity:.35; pointer-events:none; }
+  .days-err{ display:none; font-size:12.5px; color:var(--danger); margin-top:4px; }
 </style>
 </head>
 <body>
@@ -599,7 +606,7 @@
         <div class="field">
           <label>Gemini API ključ</label>
           <div style="display:flex; gap:8px;">
-            <input type="text" id="apiKeyInput" name="gemini-api-key-field" class="masked" placeholder="Nalepi ključ ovde" style="flex:1;" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+            <input type="text" id="apiKeyInput" name="gemini-api-key-field" class="masked" enterkeyhint="done" placeholder="Nalepi ključ ovde" style="flex:1;" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
             <button type="button" class="btn btn-ghost" id="toggleApiKeyBtn" style="padding:10px 14px;">👁</button>
           </div>
           <div class="field-hint">Čuva se samo lokalno na ovom telefonu, ne ide u kod aplikacije.</div>
@@ -609,7 +616,6 @@
           <button class="btn btn-primary" style="flex:1;" id="saveApiBtn">Sačuvaj ključ</button>
           <button class="btn btn-primary" style="flex:0 0 96px; background:linear-gradient(135deg,#d9634f,#8a3527); color:#fff;" id="deleteApiBtn">Obriši</button>
         </div>
-        <span id="saveApiConfirm" style="display:none; font-size:13px; color:var(--accent); margin-top:8px; text-align:center;">Sačuvano ✓</span>
     </div>
 
     <div class="set-sub" id="secVoices" hidden>
@@ -641,7 +647,11 @@
         <div class="field-hint" id="backupResult" style="margin:-4px 0 14px; font-size:14px; display:none;"></div>
         <div class="field">
           <label>Podseti me na svakih (dana)</label>
-          <input type="text" id="backupDaysInput" inputmode="numeric" pattern="[0-9]*" maxlength="3" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="7">
+          <div class="save-row">
+            <input type="text" id="backupDaysInput" inputmode="numeric" pattern="[0-9]*" maxlength="3" enterkeyhint="done" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="7">
+            <button type="button" class="btn btn-primary save-mini" id="backupDaysSave" disabled>Sačuvaj</button>
+          </div>
+          <div class="days-err" id="backupDaysErr">Upiši broj od 1 do 365.</div>
         </div>
         <div class="field-hint">Bekap sadrži Sačuvano, istoriju, jezike i podešavanja. API ključ i korpa nisu uključeni — ostaju samo na telefonu.</div>
     </div>
@@ -655,7 +665,11 @@
         <div id="trashList"></div>
         <div class="field" style="margin-top:16px;">
           <label>Čuvaj obrisano (dana)</label>
-          <input type="text" id="trashDaysInput" inputmode="numeric" pattern="[0-9]*" maxlength="3" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="30">
+          <div class="save-row">
+            <input type="text" id="trashDaysInput" inputmode="numeric" pattern="[0-9]*" maxlength="3" enterkeyhint="done" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="30">
+            <button type="button" class="btn btn-primary save-mini" id="trashDaysSave" disabled>Sačuvaj</button>
+          </div>
+          <div class="days-err" id="trashDaysErr">Upiši broj od 1 do 365.</div>
         </div>
         <div class="field-hint">Obrisani prevodi i razgovori čekaju ovde. Kad prođe ovoliko dana, trajno se brišu pri otvaranju aplikacije. Korpa ne ide u bekap.</div>
         <div class="trash-bar" id="trashBar">
@@ -1156,13 +1170,6 @@ document.getElementById('trashPurgeBtn').onclick = async ()=>{
   showNote('Trajno obrisano: ' + n);
 };
 const trashDaysInput = document.getElementById('trashDaysInput');
-function persistTrashDays(){
-  const n = parseInt(trashDaysInput.value, 10);
-  if(n >= 1 && n <= 365){ trashDays = n; }
-  trashDaysInput.value = String(trashDays);
-  safeSetItem(TRASH_DAYS_KEY, String(trashDays));
-}
-trashDaysInput.addEventListener('change', ()=>{ persistTrashDays(); renderTrashList(); });
 const emptyState = document.getElementById('emptyState');
 const langRow = document.getElementById('langRow');
 const dirMine = document.getElementById('dirMine');
@@ -1196,7 +1203,6 @@ const savedDetailTitle = document.getElementById('savedDetailTitle');
 const savedDetailBody = document.getElementById('savedDetailBody');
 const savedDetailXBtn = document.getElementById('savedDetailXBtn');
 const saveApiBtn = document.getElementById('saveApiBtn');
-const saveApiConfirm = document.getElementById('saveApiConfirm');
 const deleteApiBtn = document.getElementById('deleteApiBtn');
 const settingsXBtn = document.getElementById('settingsXBtn');
 const apiKeyInput = document.getElementById('apiKeyInput');
@@ -1435,7 +1441,7 @@ document.getElementById('exitLeaveBtn').onclick = ()=>{
 };
 
 /* ============ podešavanja: pločice i podekrani ============ */
-const APP_VERSION = 98;
+const APP_VERSION = 99;
 let settingsSubOpen = null; // id otvorenog podekrana ili null (pločice)
 function jezikWord(n){ return (n % 10 === 1 && n % 100 !== 11) ? 'jezik' : 'jezika'; }
 function renderSettingsTiles(){
@@ -1492,7 +1498,7 @@ const GUIDE = [
  ],
  [
   "Korpa",
-  "Sve obrisano ide u korpu (Podešavanja → Korpa) i tamo čeka zadati broj dana (podrazumevano 30), a zatim se trajno briše pri otvaranju aplikacije.",
+  "Sve obrisano ide u korpu (Podešavanja → Korpa) i tamo čeka zadati broj dana (podrazumevano 30), a zatim se trajno briše pri otvaranju aplikacije. Broj dana se menja na dnu korpe i čuva dugmetom „Sačuvaj“ pored polja.",
   "Dodir označava stavku; dole su „Vrati“ i „Obriši trajno“. Vraćena razmena ide u razgovor, a sačuvani prevod u Sačuvano.",
   "🗑 gore šalje ceo razgovor u korpu kao jednu stavku, koja se vraća cela, istim redom."
  ],
@@ -1508,12 +1514,12 @@ const GUIDE = [
  [
   "Bekap podataka",
   "Podaci se čuvaju samo u Chrome-u na ovom telefonu: ako se u Chrome-u obrišu podaci sajta, nestaju. Zato povremeno sačuvaj bekap.",
-  "Podešavanja → Bekap podataka: „Izvezi“ preuzima jedan JSON fajl (sačuvaj ga npr. na Google Drive), a „Uvezi“ ga vraća. Kad prođe zadati broj dana bez bekapa (podrazumevano 7), gore se pojavi traka-podsetnik.",
+  "Podešavanja → Bekap podataka: „Izvezi“ preuzima jedan JSON fajl (sačuvaj ga npr. na Google Drive), a „Uvezi“ ga vraća. Kad prođe zadati broj dana bez bekapa (podrazumevano 7), gore se pojavi traka-podsetnik. Broj dana se menja u istom ekranu i čuva dugmetom „Sačuvaj“ pored polja.",
   "Korpa i Gemini ključ ne idu u bekap."
  ],
  [
   "Gemini ključ i ostalo",
-  "Za prevod je potreban Gemini API ključ: pravi se besplatno na aistudio.google.com (Get API key) i upisuje u Podešavanja → Gemini API ključ. Čuva se samo na ovom telefonu.",
+  "Za prevod je potreban Gemini API ključ: pravi se besplatno na aistudio.google.com (Get API key) i nalepi u Podešavanja → Gemini API ključ, pa dodirni „Sačuvaj ključ“. Čuva se samo na ovom telefonu.",
   "Podešavanja → Izgled: tamna ili svetla pozadina i boja akcenta. Na dnu Podešavanja piše broj verzije aplikacije."
  ]
 ];
@@ -1529,7 +1535,9 @@ function openSettingsSub(id, title){
   settingsSubOpen = id;
   history.pushState({ modal:'settingsSub' }, '');
   settingsOverlay.querySelector('.modal').scrollTop = 0;
-  if(id === 'secTrash'){ trashSel = new Set(); trashDaysInput.value = String(trashDays); renderTrashList(); }
+  if(id === 'secTrash'){ trashSel = new Set(); resetTrashDaysField(); renderTrashList(); }
+  if(id === 'secBackup'){ resetBackupDaysField(); }
+  if(id === 'secApi'){ apiKeyInput.value = apiKey; }
   if(id === 'secGuide'){ document.querySelectorAll('#guideList details').forEach(d=> d.open = false); }
 }
 document.querySelectorAll('#settingsTiles .set-tile[data-sub]').forEach(t=>{
@@ -1543,7 +1551,7 @@ function openSettings(){
   toggleApiKeyBtn.textContent = '👁';
   rateSlider.value = speechRate;
   updateRateValueLabel();
-  backupDaysInput.value = String(backupDays);
+  resetBackupDaysField();
   backupResult.style.display = 'none';
   updateBackupInfo();
   renderVoiceLangSelect();
@@ -1562,13 +1570,10 @@ function updateRateValueLabel(){
   rateValueLabel.textContent = pct;
 }
 rateSlider.addEventListener('input', updateRateValueLabel);
+/* v99: ključ i brojevi dana se čuvaju SAMO dugmetom „Sačuvaj“ (Zoran 14.10.: tiho čuvanje pri izlasku je zbunjujuće) */
 function persistSettingsFields(){
-  apiKey = apiKeyInput.value.trim();
-  safeSetItem('vp_apikey', apiKey);
   speechRate = parseFloat(rateSlider.value);
   safeSetItem('vp_rate', String(speechRate));
-  persistBackupDays();
-  persistTrashDays();
   renderLangRow();
 }
 function closeSettings(){
@@ -1576,11 +1581,69 @@ function closeSettings(){
   closeModal(settingsOverlay);
 }
 settingsBtn.onclick = openSettings;
+
+/* ============ v99: polja sa vrednošću (broj dana bekapa i korpe, Gemini ključ) ============
+   Kao Apoteka v47 (probano na telefonu): prvi dodir označi celu vrednost, pa nova cifra ili nalepljen ključ odmah zameni staru;
+   drugi dodir skida oznaku (ispravka slova). Gboard zaštita: dok traje oznaka od dodira, ako Gboard na ⌫ skine samo kraj
+   označenog, polje se isprazni (kako je korisnik hteo). Brisanje se nikad ne blokira; ne odlučuje se po selectionStart/End. */
+const fieldOriginal = new WeakMap();
+function wireSelectOnTap(el){
+  if(!el || el._selWired) return;
+  el._selWired = true;
+  let pristine = false, wasFocused = false;
+  el.addEventListener('pointerdown', ()=>{ wasFocused = (document.activeElement === el); });
+  el.addEventListener('focus', ()=>{ fieldOriginal.set(el, el.value); try{ el.select(); }catch(e){} pristine = true; });
+  el.addEventListener('click', ()=>{ if(wasFocused) pristine = false; wasFocused = false; });
+  el.addEventListener('input', (ev)=>{
+    if(!pristine) return;
+    pristine = false;
+    if(!ev.inputType || ev.inputType.indexOf('delete') !== 0) return;
+    const original = fieldOriginal.get(el);
+    if(typeof original === 'string' && el.value !== '' && el.value.length < original.length && original.indexOf(el.value) === 0){
+      el.value = '';
+      el.dispatchEvent(new Event('input', { bubbles:true }));
+    }
+  });
+}
+/* broj dana: „Sačuvaj“ pored polja, bledo dok se broj ne promeni; Enter = Sačuvaj; izlazak bez čuvanja vraća stari broj */
+function wireDaysField(input, btn, err, getSaved, apply, noteText){
+  const check = ()=>{
+    const raw = input.value.trim();
+    const ok = /^[0-9]+$/.test(raw) && +raw >= 1 && +raw <= 365;
+    btn.disabled = !(ok && +raw !== getSaved());
+    err.style.display = (raw !== '' && !ok) ? 'block' : 'none';
+  };
+  input.addEventListener('input', check);
+  const save = ()=>{
+    if(btn.disabled) return;
+    const n = +input.value.trim();
+    apply(n);
+    input.value = String(n); input.blur(); check();
+    showNote(noteText(n));
+  };
+  btn.addEventListener('click', save);
+  input.addEventListener('keydown', (e)=>{ if(e.key === 'Enter'){ e.preventDefault(); save(); } });
+  wireSelectOnTap(input);
+  return ()=>{ input.value = String(getSaved()); check(); };   // vraćanje sačuvane vrednosti
+}
+const resetBackupDaysField = wireDaysField(backupDaysInput, document.getElementById('backupDaysSave'), document.getElementById('backupDaysErr'),
+  ()=> backupDays,
+  (n)=>{ backupDays = n; safeSetItem('vp_backup_days', String(n)); updateBackupBar(); renderSettingsTiles(); },
+  (n)=> `Sačuvano: podsetnik na svakih ${n} ${daysWord(n)}`);
+const resetTrashDaysField = wireDaysField(trashDaysInput, document.getElementById('trashDaysSave'), document.getElementById('trashDaysErr'),
+  ()=> trashDays,
+  (n)=>{ trashDays = n; safeSetItem(TRASH_DAYS_KEY, String(n)); renderTrashList(); renderSettingsTiles(); },
+  (n)=> `Sačuvano: korpa čuva ${n} ${daysWord(n)}`);
+wireSelectOnTap(apiKeyInput);
 saveApiBtn.onclick = ()=>{
-  persistSettingsFields();
-  saveApiConfirm.style.display = 'block';
-  setTimeout(()=>{ saveApiConfirm.style.display = 'none'; }, 1800);
+  const v = apiKeyInput.value.trim();
+  if(!v){ showNote('Nalepi ključ pre čuvanja — za brisanje je dugme „Obriši“.', { warn:true }); return; }
+  apiKey = v; safeSetItem('vp_apikey', apiKey);
+  apiKeyInput.value = apiKey; apiKeyInput.blur();
+  renderSettingsTiles();
+  showNote('Ključ sačuvan');
 };
+apiKeyInput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter'){ e.preventDefault(); saveApiBtn.click(); } });
 /* ‹ u zaglavlju: iz podekrana nazad na pločice, sa pločica izlaz (isto kao korak nazad na telefonu) */
 settingsXBtn.onclick = ()=>{
   if(settingsSubOpen){
@@ -1857,14 +1920,6 @@ function updateBackupBar(){
   }
   backupBar.style.display = 'flex';
 }
-function persistBackupDays(){
-  const n = parseInt(backupDaysInput.value, 10);
-  if(n >= 1 && n <= 365){ backupDays = n; }
-  backupDaysInput.value = String(backupDays);
-  safeSetItem('vp_backup_days', String(backupDays));
-  updateBackupBar();
-}
-backupDaysInput.addEventListener('change', persistBackupDays);
 
 function buildBackup(){
   return {

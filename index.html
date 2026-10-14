@@ -1566,15 +1566,25 @@ function renderLangsMine(){
     langsMine.appendChild(chip);
   });
 }
+/* univerzalna pretraga: velika/mala slova, ćirilica = latinica, bez kvačica (č ć → c, š → s, ž → z, đ → d, dj → d, dž → dz) */
+const CYR2LAT = { 'а':'a','б':'b','в':'v','г':'g','д':'d','ђ':'đ','е':'e','ж':'ž','з':'z','и':'i','ј':'j','к':'k','л':'l','љ':'lj','м':'m',
+  'н':'n','њ':'nj','о':'o','п':'p','р':'r','с':'s','т':'t','ћ':'ć','у':'u','ф':'f','х':'h','ц':'c','ч':'č','џ':'dž','ш':'š' };
+function normSearch(t){
+  return String(t || '').toLowerCase()
+    .replace(/[\u0400-\u04ff]/g, ch=> CYR2LAT[ch] !== undefined ? CYR2LAT[ch] : ch)
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd').replace(/dj/g, 'd')
+    .replace(/\s+/g, ' ');
+}
 function renderLangsList(){
-  const q = langsSearch.value.trim().toLowerCase();
+  const q = normSearch(langsSearch.value.trim());
   const have = new Set(langs.map(l=> l.code.toLowerCase()));
   /* i podrazumevani (Ruski, Turski, Engleski) — da uklonjeni može da se vrati sa spiska */
   const catalog = DEFAULT_LANGS.concat(ALL_LANGS).filter((l, i, a)=> a.findIndex(x=> x.code.toLowerCase() === l.code.toLowerCase()) === i);
   const avail = catalog.filter(l=>{
     if(have.has(l.code.toLowerCase())) return false;
     if(!q) return true;
-    const n = l.label.toLowerCase();
+    const n = normSearch(l.label);
     return n.startsWith(q) || n.includes(' ' + q) || n.includes('(' + q);
   }).sort((a, b)=> a.label.localeCompare(b.label, 'sr-Latn'));
   langsList.innerHTML = '';

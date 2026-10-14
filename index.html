@@ -277,7 +277,7 @@
     padding:6px 10px; color: var(--text); font-family:'Barlow', sans-serif; font-size:15px;
   }
   .selection-bar{
-    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+    display:flex; align-items:center; gap:4px; flex-wrap:nowrap;
     margin-bottom:14px; padding:10px; background: var(--bg-raised);
     border:1px solid var(--accent-dim); border-radius:12px;
   }
@@ -394,6 +394,54 @@
   body.noting .modal-overlay{ top:var(--note-h); }  /* i prozori (Podešavanja, Sačuvano…) počinju ispod trake */
   .mic-status:empty{ visibility:hidden; }
   .btn.btn-save-now{ background:var(--accent); border-color:var(--accent); color:var(--accent-text); }
+
+  /* ===== v93: prevlačenje ulevo (kao Apoteka v52 / Arhiva v122), izbor, korpa ===== */
+  main#feed{ position:relative; }
+  #savedListWrap{ position:relative; }
+  .turn-pair{ position:relative; z-index:1; border-radius:var(--radius); background:var(--bg); touch-action:pan-y;
+    -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; flex-shrink:0; }
+  .saved-item{ position:relative; z-index:1; touch-action:pan-y; }
+  .turn-pair.sw-anim, .saved-item.sw-anim{ transition:transform .2s ease; }
+  .sw-del{ position:absolute; width:96px; box-sizing:border-box; border:none; border-radius:16px; z-index:0;
+    background:#FF0000; color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
+    padding:0 0 0 12px; font-family:inherit; font-size:13px; font-weight:600; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .sw-del svg{ width:24px; height:24px; }
+  /* kvadratna dugmad u traci izbora (početni ekran i Sačuvano) */
+  .sq{ flex:none; width:50px; display:flex; flex-direction:column; align-items:center; gap:3px; padding:0; border:none; background:none;
+    font-family:'Barlow', sans-serif; font-size:11px; font-weight:600; color:var(--text); cursor:pointer; }
+  .sq b{ width:42px; height:42px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:19px; font-weight:600;
+    background:var(--bg-card); border:1px solid var(--border); color:var(--text); }
+  .sq.del b{ background:#FF0000; border-color:#FF0000; color:#fff; }
+  .sel-cnt{ flex:1; min-width:0; font-size:13px; color:var(--text-dim); }
+  /* u Sačuvanom je traka uža (prozor): broj u dva reda, u sredini */
+  .selection-bar .sq{ width:46px; }
+  .selection-bar .sel-cnt{ font-size:12px; line-height:1.2; text-align:center; }
+  .sel-top{ display:flex; align-items:center; gap:6px; padding:8px 10px; margin-top:10px;
+    background:var(--bg-raised); border:1px solid var(--accent-dim); border-radius:12px; }
+  .turn-pair.pair-sel{ outline:2px solid var(--accent-bright); outline-offset:2px; }
+  .pair-chk{ position:absolute; right:14px; top:12px; font-size:22px; z-index:3; pointer-events:none; }
+  body.feed-selecting #feed .card-actions, body.feed-selecting #feed .replay-btn{ visibility:hidden; }
+  body.feed-selecting .mic-dock{ opacity:.35; }
+  body.feed-selecting .mic-dock, body.feed-selecting .mic-dock *{ pointer-events:none !important; }
+  /* korpa (kao Troškovi v11) */
+  .trash-top{ display:flex; justify-content:space-between; align-items:center; margin:2px 2px 8px; }
+  .trash-link{ background:none; border:none; padding:8px 4px; font-family:inherit; font-size:14px; font-weight:700; color:var(--accent); cursor:pointer; }
+  .trash-link.danger{ color:var(--danger); }
+  .trash-item{ display:flex; align-items:center; gap:12px; padding:12px; margin-bottom:6px; border-radius:12px; background:var(--bg-card); border:1px solid var(--border); cursor:pointer; }
+  .trash-item.sel{ border-color:var(--accent-bright); }
+  .trash-check{ width:22px; height:22px; flex:none; border-radius:6px; border:2px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:800; color:var(--accent-text); }
+  .trash-item.sel .trash-check{ background:var(--accent-bright); border-color:var(--accent-bright); }
+  .trash-tx{ min-width:0; flex:1; }
+  .trash-name{ font-size:15px; font-weight:600; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .trash-item.is-conv .trash-name{ font-weight:800; }
+  .trash-sub{ font-size:12px; color:var(--text-dim); margin-top:2px; }
+  .trash-empty{ color:var(--text-dim); font-size:14px; text-align:center; padding:24px 0; }
+  .trash-bar{ display:none; position:fixed; left:0; right:0; bottom:0; z-index:5; gap:10px; padding:12px 14px calc(12px + env(safe-area-inset-bottom,0px));
+    background:var(--bg); border-top:1px solid var(--border); }
+  .trash-bar.show{ display:flex; }
+  .trash-bar .btn{ flex:1; }
+  .trash-bar .trash-purge{ background:transparent; border:1.5px solid var(--danger); color:var(--danger); }
+  #secTrash{ padding-bottom:84px; }
 </style>
 </head>
 <body>
@@ -411,6 +459,13 @@
       </div>
     </div>
     <div class="lang-row" id="langRow"></div>
+    <div class="sel-top" id="feedSelBar" style="display:none;">
+      <button type="button" class="sq" id="feedSelCancel"><b>✕</b>Otkaži</button>
+      <span class="sel-cnt" id="feedSelCount">0 izabrano</span>
+      <button type="button" class="sq" id="feedSelSave"><b>☆</b>Sačuvaj</button>
+      <button type="button" class="sq" id="feedSelShare"><b>↗</b>Podeli</button>
+      <button type="button" class="sq del" id="feedSelDelete"><b>🗑</b>Obriši</button>
+    </div>
   </header>
 
   <div class="backup-bar" id="backupBar">
@@ -467,7 +522,8 @@
       <button class="set-tile" data-sub="secLang" data-title="Jezici"><span class="tile-icon">🌐</span><span class="tile-text"><span class="tile-title">Jezici</span><span class="tile-sub" id="tileSubLang"></span></span><span class="tile-chev">›</span></button>
       <button class="set-tile" data-sub="secVoices" data-title="Glas i izgovor"><span class="tile-icon">🔊</span><span class="tile-text"><span class="tile-title">Glas i izgovor</span><span class="tile-sub" id="tileSubVoice"></span></span><span class="tile-chev">›</span></button>
       <button class="set-tile" data-sub="secBackup" data-title="Bekap podataka"><span class="tile-icon">💾</span><span class="tile-text"><span class="tile-title">Bekap podataka</span><span class="tile-sub" id="tileSubBackup"></span></span><span class="tile-chev">›</span></button>
-      <button class="set-tile danger" id="clearHistoryBtn"><span class="tile-icon">🗑</span><span class="tile-text"><span class="tile-title">Obriši istoriju razgovora</span><span class="tile-sub" id="tileSubHistory"></span></span><span class="tile-chev">›</span></button>
+      <button class="set-tile" data-sub="secTrash" data-title="Korpa"><span class="tile-icon">♻️</span><span class="tile-text"><span class="tile-title">Korpa</span><span class="tile-sub" id="tileSubTrash"></span></span><span class="tile-chev">›</span></button>
+      <button class="set-tile danger" id="clearHistoryBtn"><span class="tile-icon">🗑</span><span class="tile-text"><span class="tile-title">Obriši ceo razgovor</span><span class="tile-sub" id="tileSubHistory"></span></span><span class="tile-chev">›</span></button>
       <div class="set-version" id="appVersionLabel"></div>
     </div>
 
@@ -575,7 +631,20 @@
           <label>Podseti me na svakih (dana)</label>
           <input type="text" id="backupDaysInput" inputmode="numeric" pattern="[0-9]*" maxlength="3" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="7">
         </div>
-        <div class="field-hint">Bekap sadrži Sačuvano, istoriju, jezike i podešavanja. API ključ nije uključen — ostaje samo na telefonu.</div>
+        <div class="field-hint">Bekap sadrži Sačuvano, istoriju, jezike i podešavanja. API ključ i korpa nisu uključeni — ostaju samo na telefonu.</div>
+    </div>
+
+    <div class="set-sub" id="secTrash" hidden>
+        <div id="trashList"></div>
+        <div class="field" style="margin-top:16px;">
+          <label>Čuvaj obrisano (dana)</label>
+          <input type="text" id="trashDaysInput" inputmode="numeric" pattern="[0-9]*" maxlength="3" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="30">
+        </div>
+        <div class="field-hint">Obrisani prevodi i razgovori čekaju ovde. Kad prođe ovoliko dana, trajno se brišu pri otvaranju aplikacije. Korpa ne ide u bekap.</div>
+        <div class="trash-bar" id="trashBar">
+          <button type="button" class="btn btn-primary" id="trashRestoreBtn">Vrati</button>
+          <button type="button" class="btn trash-purge" id="trashPurgeBtn">Obriši trajno</button>
+        </div>
     </div>
 
   </div>
@@ -616,11 +685,12 @@
       <input type="text" id="savedSearchInput" placeholder="Pretraži sačuvano..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
     </div>
     <div class="selection-bar" id="savedSelectionBar" style="display:none;">
-      <button class="btn btn-ghost" id="selCancelBtn">✕ Otkaži</button>
-      <button class="btn btn-ghost" id="selSelectAllBtn">Izaberi sve</button>
-      <span class="selection-count" id="selCountLabel">0 izabrano</span>
-      <button class="saved-icon-btn" id="selPinBtn" aria-label="Pinuj izabrano">📌</button>
-      <button class="saved-icon-btn" id="selDeleteBtn" aria-label="Obriši izabrano" style="color:var(--danger);">🗑</button>
+      <button type="button" class="sq" id="selCancelBtn"><b>✕</b>Otkaži</button>
+      <button type="button" class="sq" id="selSelectAllBtn"><b>☑</b>Sve</button>
+      <span class="sel-cnt" id="selCountLabel">0 izabrano</span>
+      <button type="button" class="sq" id="selPinBtn"><b>📌</b>Na vrh</button>
+      <button type="button" class="sq" id="selShareBtn"><b>↗</b>Podeli</button>
+      <button type="button" class="sq del" id="selDeleteBtn"><b>🗑</b>Obriši</button>
     </div>
     <div id="savedListWrap"></div>
   </div>
@@ -746,6 +816,308 @@ let recState = 'idle'; // 'idle' | 'processing'
 
 /* ============ DOM refs ============ */
 const feed = document.getElementById('feed');
+
+/* ============ v93: korpa, prevlačenje ulevo, izbor na početnom ekranu, deljenje ============ */
+const TRASH_KEY = 'vp_trash', TRASH_DAYS_KEY = 'vp_trash_days';
+let trashDays = (function(){ const n = parseInt(safeGetItem(TRASH_DAYS_KEY), 10); return (n >= 1 && n <= 365) ? n : 30; })();
+function getTrash(){ try{ const a = JSON.parse(safeGetItem(TRASH_KEY) || '[]'); return Array.isArray(a) ? a.filter(x=>x && typeof x === 'object') : []; }catch(e){ return []; } }
+function setTrash(a){ safeSetItem(TRASH_KEY, JSON.stringify(a)); }
+function trashAdd(entries){
+  const a = getTrash(), now = Date.now();
+  entries.forEach((e, i)=>{ e.id = 'tr_' + now + '_' + i + '_' + Math.random().toString(36).slice(2,7); e.deletedAt = now; });
+  setTrash(entries.concat(a));
+}
+(function purgeOldTrash(){
+  const lim = Date.now() - trashDays * DAY_MS, a = getTrash(), b = a.filter(x=> (x.deletedAt || 0) >= lim);
+  if(b.length !== a.length) setTrash(b);
+})();
+function razmenaWord(n){ const d = n % 10, h = n % 100; if(d === 1 && h !== 11) return 'razmena'; if(d >= 2 && d <= 4 && (h < 12 || h > 14)) return 'razmene'; return 'razmena'; }
+function trashGoesText(n){ return (n === 1 ? 'Ide' : 'Idu') + ` u korpu, gde čeka${n === 1 ? '' : 'ju'} ${trashDays} ${daysWord(trashDays)} i može${n === 1 ? '' : 'u'} da se vrati.`; }
+/* posle potvrde: dijalog sam radi history.back(); sledeći korak tek kad se to završi */
+function afterConfirmBack(fn){
+  if(history.state && history.state.modal === 'confirm'){
+    const h = ()=>{ window.removeEventListener('popstate', h); setTimeout(fn, 0); };
+    window.addEventListener('popstate', h);
+  } else { fn(); }
+}
+
+/* prevlačenje ulevo: isti kod kao Apoteka v52 (Arhiva v122), crveno #FF0000, 84 px, prag pola */
+const SW_W = 84;
+let _swOpen = null;
+function swClose(anim){
+  const o = _swOpen; if(!o) return; _swOpen = null;
+  o.tile._swBase = 0;
+  o.tile.classList.toggle('sw-anim', anim !== false); o.tile.style.transform = '';
+  setTimeout(()=>{ o.del.remove(); o.tile.classList.remove('sw-anim'); }, anim === false ? 0 : 220);
+}
+function swipeToDelete(tile, onDelete, opt){
+  opt = opt || {};
+  let x0 = 0, y0 = 0, on = false, dx = 0, track = false;
+  const mkDel = ()=>{
+    const d = document.createElement('button');
+    d.type = 'button'; d.className = 'sw-del';
+    d.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"></path><path d="M10 11v6M14 11v6"></path></svg><span>Izbriši</span>';
+    d.style.top = tile.offsetTop + 'px'; d.style.height = tile.offsetHeight + 'px';
+    d.style.left = (tile.offsetLeft + tile.offsetWidth - 96) + 'px';
+    const r = getComputedStyle(tile); d.style.borderRadius = '0 ' + r.borderTopRightRadius + ' ' + r.borderBottomRightRadius + ' 0';
+    d.onclick = (e)=>{ e.stopPropagation(); swClose(); onDelete(); };
+    tile.parentNode.appendChild(d);
+    return d;
+  };
+  tile.addEventListener('pointerdown', (e)=>{
+    track = !(opt.canStart && !opt.canStart());
+    x0 = e.clientX; y0 = e.clientY; dx = 0; on = false; tile.dataset.suppressClick = '';
+  });
+  tile.addEventListener('pointermove', (e)=>{
+    if(!track) return;
+    const mx = e.clientX - x0, my = e.clientY - y0;
+    if(!on){
+      if(Math.abs(mx) < 10 || Math.abs(mx) < Math.abs(my) * 1.5) return;
+      on = true; if(opt.cancelLongPress) opt.cancelLongPress();
+      if(_swOpen && _swOpen.tile !== tile) swClose();
+      if(!_swOpen) _swOpen = { tile, del: mkDel() };
+      try{ tile.setPointerCapture(e.pointerId); }catch(err){}
+      tile.classList.remove('sw-anim');
+    }
+    dx = Math.max(-SW_W * 1.25, Math.min(0, (tile._swBase || 0) + mx));
+    tile.style.transform = 'translateX(' + dx + 'px)';
+  });
+  tile.addEventListener('pointerup', ()=>{
+    track = false;
+    if(!on) return;
+    on = false; tile.dataset.suppressClick = '1';
+    setTimeout(()=>{ tile.dataset.suppressClick = ''; }, 450);
+    tile.classList.add('sw-anim');
+    if(dx < -SW_W / 2){ tile.style.transform = 'translateX(' + (-SW_W) + 'px)'; tile._swBase = -SW_W; }
+    else swClose();
+  });
+  tile.addEventListener('pointercancel', ()=>{ if(on){ on = false; track = false; swClose(); } else track = false; });
+  /* posle prevlačenja dodir ne radi ništa drugo; dodir na otvorenu pločicu je samo zatvara */
+  tile.addEventListener('click', (e)=>{
+    if(tile.dataset.suppressClick === '1'){ e.stopImmediatePropagation(); e.preventDefault(); tile.dataset.suppressClick = ''; return; }
+    if(_swOpen && _swOpen.tile === tile){ e.stopImmediatePropagation(); e.preventDefault(); swClose(); }
+  }, true);
+}
+document.addEventListener('pointerdown', (e)=>{
+  if(!_swOpen) return;
+  if(e.target.closest('.sw-del') || _swOpen.tile.contains(e.target)) return;
+  swClose();
+}, true);
+
+/* deljenje kao tekst: original i prevod, sa oznakama kao na pločicama */
+function shareTextOf(list){
+  return list.map(t=>{
+    const a = t.direction === 'mine' ? 'JA' : 'GOST · ' + t.sourceLangLabel;
+    const b = t.direction === 'mine' ? t.targetLangLabel : 'JA (srpski)';
+    return a + ': ' + t.cleanedText + '\n' + b + ': ' + t.translatedText;
+  }).join('\n\n');
+}
+async function shareTurns(list){
+  const text = shareTextOf(list);
+  if(navigator.share){
+    try{ await navigator.share({ text }); return true; }
+    catch(e){ if(e && e.name === 'AbortError') return false; }
+  }
+  try{ await navigator.clipboard.writeText(text); showNote('Kopirano — nalepi gde želiš'); return true; }
+  catch(e){ showNote('Deljenje nije uspelo na ovom telefonu.', { warn:true }); return false; }
+}
+
+/* izbor na početnom ekranu: dug pritisak na razmenu */
+let feedSelMode = false, feedSel = new Set(), feedSelJustEntered = false;
+function renderFeedKeep(){ const st = feed.scrollTop; renderFeed(); feed.scrollTop = st; }
+function updateFeedSelBar(){
+  document.getElementById('feedSelBar').style.display = feedSelMode ? 'flex' : 'none';
+  document.getElementById('feedSelCount').textContent = `${feedSel.size} izabrano`;
+}
+function enterFeedSel(turn){
+  if(document.activeElement === voiceInput) voiceInput.blur();
+  feedSelMode = true; feedSel = new Set([turn]);
+  /* proguta se samo klik koji dolazi od istog dugog pritiska. Kod prsta ga Chrome šalje posebno, posle podizanja,
+     na novu pločicu; kod miša na listu. Hvata se na nivou dokumenta; ako ga nema, zaštita se gasi 350 ms posle podizanja. */
+  feedSelJustEntered = true;
+  const swallow = (e)=>{ document.removeEventListener('click', swallow, true); if(feedSelJustEntered){ feedSelJustEntered = false; e.stopPropagation(); e.preventDefault(); } };
+  document.addEventListener('click', swallow, true);
+  const release = ()=>{ document.removeEventListener('pointerup', release, true); document.removeEventListener('pointercancel', release, true);
+    setTimeout(()=>{ feedSelJustEntered = false; document.removeEventListener('click', swallow, true); }, 350); };
+  document.addEventListener('pointerup', release, true); document.addEventListener('pointercancel', release, true);
+  if(navigator.vibrate) navigator.vibrate(30);
+  history.pushState({ modal:'feedsel' }, '');
+  document.body.classList.add('feed-selecting');
+  renderFeedKeep(); updateFeedSelBar();
+}
+function endFeedSel(){
+  feedSelMode = false; feedSel = new Set();
+  document.body.classList.remove('feed-selecting');
+  renderFeedKeep(); updateFeedSelBar();
+}
+function exitFeedSel(){
+  if(!feedSelMode) return;
+  if(history.state && history.state.modal === 'feedsel'){ history.back(); } // popstate → endFeedSel
+  else endFeedSel();
+}
+function toggleFeedSel(turn){
+  if(feedSelJustEntered) return;
+  if(feedSel.has(turn)) feedSel.delete(turn); else feedSel.add(turn);
+  if(feedSel.size === 0){ exitFeedSel(); return; }
+  renderFeedKeep(); updateFeedSelBar();
+}
+function feedSelected(){ return chatHistory.filter(t=> feedSel.has(t)); }
+function attachTurnPairGestures(wrap, turn){
+  if(feedSelMode){
+    const on = feedSel.has(turn);
+    wrap.classList.toggle('pair-sel', on);
+    const c = document.createElement('div'); c.className = 'pair-chk'; c.textContent = on ? '☑️' : '⬜';
+    wrap.appendChild(c);
+    wrap.addEventListener('click', (e)=>{ e.stopPropagation(); e.preventDefault(); toggleFeedSel(turn); }, true);
+    return;
+  }
+  let lpTimer = null, x0 = 0, y0 = 0;
+  const cancel = ()=>{ clearTimeout(lpTimer); lpTimer = null; };
+  wrap.addEventListener('pointerdown', (e)=>{
+    if(correctingActive || e.target.closest('button, textarea, input')) return;
+    x0 = e.clientX; y0 = e.clientY; cancel();
+    lpTimer = setTimeout(()=>{ lpTimer = null; swClose(false); enterFeedSel(turn); }, 500);
+  });
+  wrap.addEventListener('pointermove', (e)=>{ if(lpTimer && (Math.abs(e.clientX - x0) > 10 || Math.abs(e.clientY - y0) > 10)) cancel(); });
+  wrap.addEventListener('pointerup', cancel);
+  wrap.addEventListener('pointercancel', cancel);
+  wrap.addEventListener('contextmenu', (e)=> e.preventDefault());
+  swipeToDelete(wrap, ()=> deleteTurnsToTrash([turn]), { cancelLongPress: cancel, canStart: ()=> !correctingActive });
+}
+async function deleteTurnsToTrash(list){
+  const n = list.length; if(!n) return false;
+  const ok = await customConfirm(n === 1 ? 'Obriši razmenu?' : `Obriši izabrano (${n})?`, trashGoesText(n));
+  if(!ok) return false;
+  const set = new Set(list);
+  trashAdd(list.map(t=>({ kind:'turn', turn:t })));
+  chatHistory = chatHistory.filter(t=> !set.has(t));
+  saveHistory();
+  renderFeedKeep(); renderSettingsTiles();
+  showNote(n === 1 ? 'Razmena je u korpi' : `U korpi: ${n} ${razmenaWord(n)}`);
+  return true;
+}
+function makeSavedFromTurn(t){
+  return {
+    id: 'sv_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+    name: t.cleanedText.length > 40 ? t.cleanedText.slice(0,40) + '…' : t.cleanedText,
+    direction: t.direction, sourceLangLabel: t.sourceLangLabel, targetLangLabel: t.targetLangLabel, targetLangCode: t.targetLangCode,
+    cleanedText: t.cleanedText, translatedText: t.translatedText, pinned: false, savedAt: Date.now()
+  };
+}
+document.getElementById('feedSelCancel').onclick = exitFeedSel;
+document.getElementById('feedSelShare').onclick = async ()=>{
+  const list = feedSelected(); if(!list.length) return;
+  if(await shareTurns(list)) exitFeedSel();
+};
+document.getElementById('feedSelSave').onclick = async ()=>{
+  const list = feedSelected(), n = list.length; if(!n) return;
+  const ok = await customConfirm(n === 1 ? 'Sačuvaj ovu razmenu?' : `Sačuvaj izabrano (${n})?`,
+    (n === 1 ? 'Biće uklonjena' : 'Biće uklonjene') + ' sa glavnog ekrana i ' + (n === 1 ? 'premeštena' : 'premeštene') + ' u Sačuvano (⭐ gore).', 'Sačuvaj', false);
+  if(!ok) return;
+  const set = new Set(list);
+  list.slice().reverse().forEach(t=> savedItems.unshift(makeSavedFromTurn(t)));
+  saveSavedItems();
+  chatHistory = chatHistory.filter(t=> !set.has(t));
+  saveHistory();
+  renderSettingsTiles();
+  showNote(n === 1 ? 'Sačuvano' : `Sačuvano: ${n}`);
+  afterConfirmBack(exitFeedSel);
+};
+document.getElementById('feedSelDelete').onclick = async ()=>{
+  if(await deleteTurnsToTrash(feedSelected())) afterConfirmBack(exitFeedSel);
+};
+
+/* Sačuvano → korpa */
+async function deleteSavedToTrash(ids){
+  const list = savedItems.filter(it=> ids.includes(it.id)), n = list.length;
+  if(!n) return false;
+  const ok = await customConfirm(n === 1 ? 'Obriši sačuvano?' : `Obriši izabrano (${n})?`,
+    n === 1 ? `"${list[0].name}" ide u korpu, gde čeka ${trashDays} ${daysWord(trashDays)} i može da se vrati.` : trashGoesText(n));
+  if(!ok) return false;
+  trashAdd(list.map(it=>({ kind:'saved', item:it })));
+  savedItems = savedItems.filter(it=> !ids.includes(it.id));
+  saveSavedItems();
+  showNote(n === 1 ? 'Sačuvano je u korpi' : `U korpi: ${n} sačuvanih`);
+  return true;
+}
+
+/* korpa u Podešavanjima (kao Troškovi v11) */
+let trashSel = new Set();
+function trashTitle(x){
+  if(x.kind === 'conv'){ const n = (x.turns || []).length; return `Ceo razgovor (${n} ${razmenaWord(n)})`; }
+  if(x.kind === 'saved') return (x.item && x.item.name) || '';
+  return (x.turn && x.turn.cleanedText) || '';
+}
+function trashDaysLeft(x){ return Math.max(0, Math.ceil(((x.deletedAt || 0) + trashDays * DAY_MS - Date.now()) / DAY_MS)); }
+function trashTileSub(){ const n = getTrash().length; return (n === 0 ? 'prazna' : 'u korpi: ' + n) + ' · čuva ' + trashDays + ' ' + daysWord(trashDays); }
+function renderTrashList(){
+  const box = document.getElementById('trashList'), bar = document.getElementById('trashBar');
+  const list = getTrash();
+  trashSel = new Set(Array.from(trashSel).filter(id=> list.some(x=> x.id === id)));
+  if(!list.length){ box.innerHTML = '<div class="trash-empty">Korpa je prazna.</div>'; bar.classList.remove('show'); return; }
+  const allSel = trashSel.size === list.length;
+  box.innerHTML = '<div class="trash-top"><button type="button" class="trash-link" id="trashAllBtn">' + (allSel ? 'Poništi izbor' : 'Izaberi sve') + '</button>' +
+    '<button type="button" class="trash-link danger" id="trashEmptyBtn">Isprazni korpu</button></div>' +
+    list.map(x=>{
+      const sel = trashSel.has(x.id), left = trashDaysLeft(x);
+      const where = x.kind === 'saved' ? 'Sačuvano (⭐)' : 'razgovor';
+      return '<div class="trash-item' + (sel ? ' sel' : '') + (x.kind === 'conv' ? ' is-conv' : '') + '" data-id="' + escapeHtml(x.id) + '">' +
+        '<span class="trash-check">' + (sel ? '✓' : '') + '</span>' +
+        '<div class="trash-tx"><div class="trash-name">' + escapeHtml(trashTitle(x)) + '</div>' +
+        '<div class="trash-sub">' + where + ' · obrisano ' + formatSavedDate(x.deletedAt) + ' · još ' + left + ' ' + daysWord(left) + '</div></div></div>';
+    }).join('');
+  box.querySelectorAll('.trash-item').forEach(el=>{
+    el.onclick = ()=>{ const id = el.dataset.id; if(trashSel.has(id)) trashSel.delete(id); else trashSel.add(id); renderTrashList(); };
+  });
+  document.getElementById('trashAllBtn').onclick = ()=>{ trashSel = allSel ? new Set() : new Set(list.map(x=> x.id)); renderTrashList(); };
+  document.getElementById('trashEmptyBtn').onclick = async ()=>{
+    const ok = await customConfirm('Isprazni korpu?', `Trajno obrisati sve iz korpe (${list.length})? Ovo se ne može vratiti.`, 'Isprazni');
+    if(!ok) return;
+    setTrash([]); trashSel = new Set(); renderTrashList(); showNote('Korpa je ispražnjena');
+  };
+  const n = trashSel.size;
+  bar.classList.toggle('show', n > 0);
+  document.getElementById('trashRestoreBtn').textContent = `Vrati (${n})`;
+  document.getElementById('trashPurgeBtn').textContent = `Obriši trajno (${n})`;
+}
+document.getElementById('trashRestoreBtn').onclick = ()=>{
+  const all = getTrash(), chosen = all.filter(x=> trashSel.has(x.id));
+  if(!chosen.length) return;
+  let nT = 0, nS = 0;
+  const keys = new Set(chatHistory.map(t=> t.ts + '|' + t.cleanedText));
+  const addTurn = (raw)=>{ const t = normTurn(raw); if(!t) return; const k = t.ts + '|' + t.cleanedText; if(!keys.has(k)){ chatHistory.push(t); keys.add(k); nT++; } };
+  chosen.forEach(x=>{
+    if(x.kind === 'saved'){ const it = normSavedItem(x.item); if(it && !savedItems.some(s=> s.id === it.id)){ savedItems.push(it); nS++; } }
+    else if(x.kind === 'conv'){ (x.turns || []).forEach(addTurn); }
+    else addTurn(x.turn);
+  });
+  chatHistory.sort((a, b)=> (a.ts || 0) - (b.ts || 0));
+  saveHistory(); saveSavedItems();
+  setTrash(all.filter(x=> !trashSel.has(x.id)));
+  trashSel = new Set();
+  renderFeed(); renderTrashList();
+  const parts = [];
+  if(nT) parts.push(`${nT} ${razmenaWord(nT)} u razgovor`);
+  if(nS) parts.push(`${nS} u Sačuvano`);
+  showNote(parts.length ? 'Vraćeno: ' + parts.join(', ') : 'Već postoji, ništa novo nije vraćeno');
+};
+document.getElementById('trashPurgeBtn').onclick = async ()=>{
+  const n = trashSel.size; if(!n) return;
+  const ok = await customConfirm(`Obriši trajno (${n})?`, 'Izabrano se briše zauvek. Ovo se ne može vratiti.', 'Obriši trajno');
+  if(!ok) return;
+  const ids = new Set(trashSel);
+  setTrash(getTrash().filter(x=> !ids.has(x.id)));
+  trashSel = new Set(); renderTrashList();
+  showNote('Trajno obrisano: ' + n);
+};
+const trashDaysInput = document.getElementById('trashDaysInput');
+function persistTrashDays(){
+  const n = parseInt(trashDaysInput.value, 10);
+  if(n >= 1 && n <= 365){ trashDays = n; }
+  trashDaysInput.value = String(trashDays);
+  safeSetItem(TRASH_DAYS_KEY, String(trashDays));
+}
+trashDaysInput.addEventListener('change', ()=>{ persistTrashDays(); renderTrashList(); });
 const emptyState = document.getElementById('emptyState');
 const langRow = document.getElementById('langRow');
 const dirMine = document.getElementById('dirMine');
@@ -962,6 +1334,10 @@ window.addEventListener('popstate', ()=>{
     renderFeed();
     return;
   }
+  if(feedSelMode && settingsOverlay.style.display !== 'flex' && savedOverlay.style.display !== 'flex'){
+    endFeedSel();
+    return;
+  }
   if(savedDetailOverlay.style.display === 'flex'){
     savedDetailOverlay.style.display = 'none';
     return;
@@ -1019,7 +1395,7 @@ document.getElementById('exitLeaveBtn').onclick = ()=>{
 };
 
 /* ============ podešavanja: pločice i podekrani ============ */
-const APP_VERSION = 92;
+const APP_VERSION = 93;
 let settingsSubOpen = null; // id otvorenog podekrana ili null (pločice)
 function jezikWord(n){ return (n % 10 === 1 && n % 100 !== 11) ? 'jezik' : 'jezika'; }
 function renderSettingsTiles(){
@@ -1029,7 +1405,8 @@ function renderSettingsTiles(){
   document.getElementById('tileSubLang').textContent = `${langs.length} ${jezikWord(langs.length)}`;
   document.getElementById('tileSubVoice').textContent = 'brzina ' + Math.round((speechRate - 0.6) / 0.8 * 100);
   document.getElementById('tileSubBackup').textContent = lastBackupTs ? 'poslednji bekap: ' + formatBackupDate(lastBackupTs) : 'bekap još nikad nije pravljen';
-  document.getElementById('tileSubHistory').textContent = 'u istoriji: ' + chatHistory.length;
+  document.getElementById('tileSubHistory').textContent = 'u razgovoru: ' + chatHistory.length + ' · ide u korpu';
+  document.getElementById('tileSubTrash').textContent = trashTileSub();
   document.getElementById('appVersionLabel').textContent = 'verzija ' + APP_VERSION;
 }
 function showSettingsTiles(){
@@ -1037,6 +1414,7 @@ function showSettingsTiles(){
   document.querySelectorAll('#settingsOverlay .set-sub').forEach(el=> el.hidden = true);
   document.getElementById('settingsTiles').hidden = false;
   document.getElementById('settingsTitle').textContent = 'Podešavanja';
+  trashSel = new Set(); document.getElementById('trashBar').classList.remove('show');
   settingsSubOpen = null;
   renderSettingsTiles();
   settingsOverlay.querySelector('.modal').scrollTop = 0;
@@ -1048,6 +1426,7 @@ function openSettingsSub(id, title){
   settingsSubOpen = id;
   history.pushState({ modal:'settingsSub' }, '');
   settingsOverlay.querySelector('.modal').scrollTop = 0;
+  if(id === 'secTrash'){ trashSel = new Set(); trashDaysInput.value = String(trashDays); renderTrashList(); }
 }
 document.querySelectorAll('#settingsTiles .set-tile[data-sub]').forEach(t=>{
   t.onclick = ()=> openSettingsSub(t.dataset.sub, t.dataset.title);
@@ -1089,6 +1468,7 @@ function persistSettingsFields(){
   speechRate = parseFloat(rateSlider.value);
   safeSetItem('vp_rate', String(speechRate));
   persistBackupDays();
+  persistTrashDays();
   renderLangRow();
 }
 function closeSettings(){
@@ -1201,12 +1581,17 @@ addLangBtn.onclick = ()=>{
   renderSettingsTiles();
 };
 async function clearHistory(){
-  const ok = await customConfirm('Obriši istoriju?', 'Ovo trajno briše sve zapisane razgovore sa ovog telefona. Sačuvano (⭐) ostaje netaknuto, jer se čuva odvojeno.');
+  const n = chatHistory.length;
+  if(n === 0){ showNote('Razgovor je već prazan'); return; }
+  const ok = await customConfirm('Obriši ceo razgovor?', `Ceo razgovor (${n} ${razmenaWord(n)}) ide u korpu kao jedna stavka, gde čeka ${trashDays} ${daysWord(trashDays)} i može da se vrati. Sačuvano (⭐) ostaje netaknuto.`);
   if(!ok) return;
+  trashAdd([{ kind:'conv', turns: chatHistory.slice() }]);
   chatHistory = [];
   saveHistory();
+  if(feedSelMode) afterConfirmBack(exitFeedSel);
   renderFeed();
   renderSettingsTiles();
+  showNote('Ceo razgovor je u korpi');
 }
 clearHistoryBtn.onclick = clearHistory;
 
@@ -1485,6 +1870,7 @@ function exitSelectionMode(){
 }
 
 function renderSavedList(){
+  if(_swOpen && savedListWrap.contains(_swOpen.tile)) _swOpen = null;
   savedListWrap.innerHTML = '';
   const items = getVisibleSavedItems();
 
@@ -1551,6 +1937,9 @@ function renderSavedList(){
     };
 
     savedListWrap.appendChild(el);
+    if(!selectionMode){
+      swipeToDelete(el, async ()=>{ if(await deleteSavedToTrash([item.id])) renderSavedList(); }, { cancelLongPress: cancelPress, canStart: ()=> !selectionMode });
+    }
   });
 }
 
@@ -1651,10 +2040,7 @@ function openSavedDetail(itemId){
   renameBtnEl.addEventListener('pointercancel', dropSaveIntent);
   renameBtnEl.addEventListener('pointerup', ()=>{ setTimeout(dropSaveIntent, 400); });
   savedDetailBody.querySelector('#savedDetailDeleteBtn').onclick = async ()=>{
-    const ok = await customConfirm('Obriši sačuvano?', `Obrisati "${item.name}" iz sačuvanog? Ovo se ne može vratiti.`);
-    if(!ok) return;
-    savedItems = savedItems.filter(x=>x.id !== item.id);
-    saveSavedItems();
+    if(!(await deleteSavedToTrash([item.id]))) return;
     setTimeout(()=>{
       closeModal(savedDetailOverlay);
       renderSavedList();
@@ -1690,13 +2076,13 @@ selPinBtn.onclick = ()=>{
   renderSavedList();
 };
 selDeleteBtn.onclick = async ()=>{
-  const n = selectedIds.size;
-  if(n === 0) return;
-  const ok = await customConfirm('Obriši izabrano?', `Obrisati ${n} sačuvanih razmena? Ovo se ne može vratiti.`);
-  if(!ok) return;
-  savedItems = savedItems.filter(it=>!selectedIds.has(it.id));
-  saveSavedItems();
-  exitSelectionMode();
+  if(selectedIds.size === 0) return;
+  if(await deleteSavedToTrash(Array.from(selectedIds))) exitSelectionMode();
+};
+document.getElementById('selShareBtn').onclick = async ()=>{
+  const list = getVisibleSavedItems().filter(it=> selectedIds.has(it.id));
+  if(!list.length) return;
+  if(await shareTurns(list)) exitSelectionMode();
 };
 
 /* ============ feed rendering ============ */
@@ -1720,6 +2106,7 @@ document.addEventListener('pointerdown', ()=>{
 }, true);
 
 function renderFeed(){
+  _swOpen = null;
   const micDock = document.querySelector('.mic-dock');
   if(micDock) micDock.style.display = '';
   feed.innerHTML = '';
@@ -1747,18 +2134,7 @@ function buildTurnPair(turn, idx){
     const ok = await customConfirm('Sačuvaj ovu razmenu?', 'Biće uklonjena sa glavnog ekrana i premeštena u Sačuvano (⭐ gore).', 'Sačuvaj', false);
     if(!ok) return;
     const t = chatHistory[idx];
-    const item = {
-      id: 'sv_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
-      name: t.cleanedText.length > 40 ? t.cleanedText.slice(0,40) + '…' : t.cleanedText,
-      direction: t.direction,
-      sourceLangLabel: t.sourceLangLabel,
-      targetLangLabel: t.targetLangLabel,
-      targetLangCode: t.targetLangCode,
-      cleanedText: t.cleanedText,
-      translatedText: t.translatedText,
-      pinned: false,
-      savedAt: Date.now()
-    };
+    const item = makeSavedFromTurn(t);
     savedItems.unshift(item);
     saveSavedItems();
     chatHistory.splice(idx, 1);
@@ -1776,6 +2152,7 @@ function buildTurnPair(turn, idx){
 
   wrap.appendChild(c1);
   wrap.appendChild(c2);
+  attachTurnPairGestures(wrap, turn);
   return wrap;
 }
 

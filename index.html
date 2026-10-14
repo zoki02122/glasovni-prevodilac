@@ -468,6 +468,21 @@
   .lp-chip.lift{ position:relative; z-index:3; border:2px solid var(--accent-bright); background:var(--bg-raised);
     box-shadow:0 8px 20px rgba(0,0,0,.5); transition:none !important; }
   .lp-mine.dragging{ -webkit-mask-image:none; mask-image:none; }
+
+  /* ===== v98: korisničko uputstvo (Podešavanja → Uputstvo), kao Troškovi v12 ===== */
+  .guide-intro{ font-size:13px; color:var(--text-dim); padding:0 4px 10px; }
+  .guide-list{ background:var(--bg-card); border:1px solid var(--border); border-radius:13px; overflow:hidden; }
+  .guide-item{ border-bottom:1px solid var(--border); }
+  .guide-item:last-child{ border-bottom:none; }
+  .guide-item summary{ list-style:none; display:flex; align-items:center; gap:10px; padding:15px 14px; cursor:pointer;
+    font-size:15px; font-weight:700; color:var(--text); -webkit-tap-highlight-color:transparent; }
+  .guide-item summary::-webkit-details-marker{ display:none; }
+  .guide-item summary span{ flex:1; min-width:0; }
+  .guide-chev{ font-style:normal; color:var(--text-dim); font-size:20px; line-height:1; transition:transform .18s ease; }
+  .guide-item[open] .guide-chev{ transform:rotate(90deg); color:var(--accent-bright); }
+  .guide-item[open] summary{ color:var(--accent-bright); }
+  .guide-item p{ margin:0; padding:0 14px 12px; font-size:14.5px; line-height:1.55; color:var(--text); }
+  .guide-item p:last-child{ padding-bottom:16px; }
 </style>
 </head>
 <body>
@@ -509,7 +524,7 @@
     <main id="feed">
       <div class="empty-state" id="emptyState">
         <div class="num">—</div>
-        <p>Pritisni mikrofon na dnu ekrana i reci šta treba da se prevede.<br>Aplikacija ne prevodi dok ne završiš — pritisni mikrofon ponovo kad si gotov.</p>
+        <p>Dodirni polje dole i ukucaj ili izgovori rečenicu preko mikrofona na tastaturi.<br>Kako sve radi: Podešavanja → Uputstvo.</p>
       </div>
     </main>
   </div>
@@ -550,6 +565,7 @@
       <button class="set-tile" data-sub="secVoices" data-title="Glas i izgovor"><span class="tile-icon">🔊</span><span class="tile-text"><span class="tile-title">Glas i izgovor</span><span class="tile-sub" id="tileSubVoice"></span></span><span class="tile-chev">›</span></button>
       <button class="set-tile" data-sub="secBackup" data-title="Bekap podataka"><span class="tile-icon">💾</span><span class="tile-text"><span class="tile-title">Bekap podataka</span><span class="tile-sub" id="tileSubBackup"></span></span><span class="tile-chev">›</span></button>
       <button class="set-tile" data-sub="secTrash" data-title="Korpa"><span class="tile-icon">♻️</span><span class="tile-text"><span class="tile-title">Korpa</span><span class="tile-sub" id="tileSubTrash"></span></span><span class="tile-chev">›</span></button>
+      <button class="set-tile" data-sub="secGuide" data-title="Uputstvo"><span class="tile-icon">📖</span><span class="tile-text"><span class="tile-title">Uputstvo</span><span class="tile-sub">kako se koristi aplikacija</span></span><span class="tile-chev">›</span></button>
       <button class="set-tile danger" id="clearHistoryBtn"><span class="tile-icon">🗑</span><span class="tile-text"><span class="tile-title">Obriši ceo razgovor</span><span class="tile-sub" id="tileSubHistory"></span></span><span class="tile-chev">›</span></button>
       <div class="set-version" id="appVersionLabel"></div>
     </div>
@@ -631,6 +647,11 @@
           <input type="text" id="backupDaysInput" inputmode="numeric" pattern="[0-9]*" maxlength="3" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="7">
         </div>
         <div class="field-hint">Bekap sadrži Sačuvano, istoriju, jezike i podešavanja. API ključ i korpa nisu uključeni — ostaju samo na telefonu.</div>
+    </div>
+
+    <div class="set-sub" id="secGuide" hidden>
+        <div class="guide-intro">Dodirni naslov da pročitaš objašnjenje.</div>
+        <div class="guide-list" id="guideList"></div>
     </div>
 
     <div class="set-sub" id="secTrash" hidden>
@@ -1418,7 +1439,7 @@ document.getElementById('exitLeaveBtn').onclick = ()=>{
 };
 
 /* ============ podešavanja: pločice i podekrani ============ */
-const APP_VERSION = 97;
+const APP_VERSION = 98;
 let settingsSubOpen = null; // id otvorenog podekrana ili null (pločice)
 function jezikWord(n){ return (n % 10 === 1 && n % 100 !== 11) ? 'jezik' : 'jezika'; }
 function renderSettingsTiles(){
@@ -1442,6 +1463,70 @@ function showSettingsTiles(){
   renderSettingsTiles();
   settingsOverlay.querySelector('.modal').scrollTop = 0;
 }
+/* v98: korisničko uputstvo. Pri ulasku su svi naslovi zatvoreni (zajedničko pravilo: objašnjenja zatvorena, otvaraju se dodirom).
+   Tekst opisuje ponašanje iz koda; pri svakoj verziji osvežiti. */
+const GUIDE = [
+ [
+  "Prevođenje",
+  "Izaberi jezik gosta u redu jezika gore. Dole izaberi ko govori: „Ja govorim“ (srpski u izabrani jezik) ili „Gost“ (izabrani jezik u srpski).",
+  "Dodirni polje za unos i ukucaj tekst, ili ga izgovori preko mikrofona na tastaturi. Strelica ili Enter šalje.",
+  "Prevod se pojavi veliko na ekranu i odmah se izgovori. Tastatura ostaje otvorena za sledeću rečenicu; prvo ukucano slovo ponovo otvara polje."
+ ],
+ [
+  "Zatvaranje polja i prevoda",
+  "Kad je polje prazno, sklanja se drugim dodirom na polje, dodirom na strelicu ili tasterom ⌫ na tastaturi. Tastatura pri tome ostaje otvorena.",
+  "Dok je prevod veliko na ekranu, ⌫ na tastaturi zatvara samo prevod.",
+  "Tastatura se spušta dodirom van polja ili korakom nazad."
+ ],
+ [
+  "Jezici (🌐)",
+  "🌐 gore otvara prozor „Jezici“. Gore su jezici iz reda: crveno ✕ uklanja jezik (posle potvrde), a „drži i prevuci“ menja raspored. Isti raspored važi i u redu na početnom ekranu.",
+  "Dole je spisak svih jezika. Pretraga radi bez obzira na velika i mala slova, ćirilicu ili latinicu i kvačice. Dodir dodaje jezik i odmah ga bira.",
+  "Jezik kojeg nema na spisku dodaje se preko „Nema ga na spisku? Upiši ručno ›“ (naziv i kod, npr. el-GR). Isti prozor otvara i Podešavanja → Jezici."
+ ],
+ [
+  "Razgovor",
+  "Svaka razmena je pločica: gore original, dole prevod. ☆ premešta razmenu u Sačuvano, ✎ ispravlja tekst i prevodi ponovo, 🔊 ponavlja izgovor.",
+  "Prevuci pločicu ulevo: pojavi se crveno „Izbriši“, a razmena posle potvrde ide u korpu.",
+  "Dug pritisak na pločicu otvara izbor: dodirom dodaješ još pločica, a traka gore nudi Sačuvaj, Podeli (Viber, poruka, kopiranje…) i Obriši. ✕ ili korak nazad prekida izbor."
+ ],
+ [
+  "Sačuvano (⭐)",
+  "⭐ gore otvara sačuvane prevode, sa pretragom koja radi kao kod jezika. Dodir otvara prevod: Preimenuj, Izgovori, Obriši. 📌 drži prevod na vrhu spiska.",
+  "Prevlačenje ulevo i dug pritisak rade kao u razgovoru; traka izbora ima Sve, Na vrh, Podeli i Obriši."
+ ],
+ [
+  "Korpa",
+  "Sve obrisano ide u korpu (Podešavanja → Korpa) i tamo čeka zadati broj dana (podrazumevano 30), a zatim se trajno briše pri otvaranju aplikacije.",
+  "Dodir označava stavku; dole su „Vrati“ i „Obriši trajno“. Vraćena razmena ide u razgovor, a sačuvani prevod u Sačuvano.",
+  "🗑 gore šalje ceo razgovor u korpu kao jednu stavku, koja se vraća cela, istim redom."
+ ],
+ [
+  "Zvuk i glas",
+  "🔊 gore isključuje i uključuje automatski izgovor prevoda; 🔊 na pločici izgovara i kad je zvuk isključen.",
+  "Podešavanja → Glas i izgovor: brzina izgovora i izbor glasa za svaki jezik, uz probu glasa."
+ ],
+ [
+  "Obaveštenja",
+  "Posle radnje gore se pojavi obaveštenje: kvačica znači da je urađeno, crveni znak „!“ da nešto treba proveriti (npr. nema interneta ili ključa). Nestaje samo posle par sekundi."
+ ],
+ [
+  "Bekap podataka",
+  "Podaci se čuvaju samo u Chrome-u na ovom telefonu: ako se u Chrome-u obrišu podaci sajta, nestaju. Zato povremeno sačuvaj bekap.",
+  "Podešavanja → Bekap podataka: „Izvezi“ preuzima jedan JSON fajl (sačuvaj ga npr. na Google Drive), a „Uvezi“ ga vraća. Kad prođe zadati broj dana bez bekapa (podrazumevano 7), gore se pojavi traka-podsetnik.",
+  "Korpa i Gemini ključ ne idu u bekap."
+ ],
+ [
+  "Gemini ključ i ostalo",
+  "Za prevod je potreban Gemini API ključ: pravi se besplatno na aistudio.google.com (Get API key) i upisuje u Podešavanja → Gemini API ključ. Čuva se samo na ovom telefonu.",
+  "Podešavanja → Izgled: tamna ili svetla pozadina i boja akcenta. Na dnu Podešavanja piše broj verzije aplikacije."
+ ]
+];
+(function renderGuide(){
+  const box = document.getElementById('guideList');
+  box.innerHTML = GUIDE.map(sec=> '<details class="guide-item"><summary><span>' + escapeHtml(sec[0]) + '</span><i class="guide-chev">›</i></summary>' +
+    sec.slice(1).map(par=> '<p>' + escapeHtml(par) + '</p>').join('') + '</details>').join('');
+})();
 function openSettingsSub(id, title){
   document.getElementById('settingsTiles').hidden = true;
   document.getElementById(id).hidden = false;
@@ -1450,6 +1535,7 @@ function openSettingsSub(id, title){
   history.pushState({ modal:'settingsSub' }, '');
   settingsOverlay.querySelector('.modal').scrollTop = 0;
   if(id === 'secTrash'){ trashSel = new Set(); trashDaysInput.value = String(trashDays); renderTrashList(); }
+  if(id === 'secGuide'){ document.querySelectorAll('#guideList details').forEach(d=> d.open = false); }
 }
 document.querySelectorAll('#settingsTiles .set-tile[data-sub]').forEach(t=>{
   t.onclick = ()=> openSettingsSub(t.dataset.sub, t.dataset.title);

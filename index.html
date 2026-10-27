@@ -373,6 +373,26 @@
   .theme-swatch.active{ border-color: var(--accent-bright); color: var(--text); }
   .swatch-preview{ width:28px; height:28px; border-radius:50%; display:block; }
   .slider-row input[type=range]{ flex:1; }
+/* MODUL ai-dnevnik v1 */
+.ai-set-lbl{ font-size:12px; color:var(--text-dim); margin:18px 4px 8px; text-transform:lowercase; }
+.ai-use-row{ display:flex; justify-content:space-between; gap:10px; padding:12px 14px; border-bottom:1px solid var(--border); font-size:13px; color:var(--text); }
+.ai-use-row:last-child{ border-bottom:none; }
+.ai-use-row span{ color:var(--text-dim); flex:none; }
+.ai-use-row b{ font-weight:600; text-align:right; overflow-wrap:anywhere; }
+.ai-last{ padding:10px 14px; border-bottom:1px solid var(--border); font-size:12.5px; line-height:1.45; color:var(--text); }
+.ai-last.ai-fail, .ai-last .ai-fail-tx{ color:var(--danger); }
+.ai-last:last-child{ border-bottom:none; }
+.ai-last small{ display:block; color:var(--text-dim); }
+  .settings-card{ background:var(--bg-card); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+  .settings-hint{ font-size:12.5px; color:var(--text-dim); margin-top:8px; line-height:1.45; }
+  .ai-opt{ display:flex; align-items:center; gap:12px; width:100%; text-align:left; cursor:pointer; background:var(--bg-card);
+    border:2px solid var(--border); border-radius:12px; padding:12px; margin-bottom:8px; color:var(--text);
+    font-family:'Barlow', sans-serif; font-size:15.5px; font-weight:600; }
+  .ai-opt.active{ border-color:var(--accent-bright); }
+  .ai-opt small{ display:block; font-size:12.5px; font-weight:400; color:var(--text-dim); margin-top:2px; }
+  .ai-opt .ai-chk{ margin-left:auto; flex:0 0 22px; height:22px; border-radius:50%; border:1.5px solid var(--border);
+    display:flex; align-items:center; justify-content:center; font-size:13px; }
+  .ai-opt.active .ai-chk{ background:var(--accent); border-color:var(--accent); color:var(--accent-text); }
 
   /* ============ obaveštenja gore (isto kao Troškovi) ============ */
   .note-top{ display:none; position:fixed; top:0; left:0; right:0; z-index:60; padding:calc(8px + env(safe-area-inset-top,0px)) 12px 0; box-sizing:border-box; background:var(--bg); pointer-events:none; }
@@ -568,7 +588,7 @@
       <button class="set-tile" data-sub="secGuide" data-title="Uputstvo"><span class="tile-icon">📖</span><span class="tile-text"><span class="tile-title">Uputstvo</span><span class="tile-sub">kako se koristi aplikacija</span></span><span class="tile-chev">›</span></button>
       <button class="set-tile" data-sub="secTheme" data-title="Izgled"><span class="tile-icon">🎨</span><span class="tile-text"><span class="tile-title">Izgled</span><span class="tile-sub" id="tileSubTheme"></span></span><span class="tile-chev">›</span></button>
       <button class="set-tile" data-sub="secVoices" data-title="Glas i izgovor"><span class="tile-icon">🔊</span><span class="tile-text"><span class="tile-title">Glas i izgovor</span><span class="tile-sub" id="tileSubVoice"></span></span><span class="tile-chev">›</span></button>
-      <button class="set-tile" data-sub="secApi" data-title="Gemini API ključ"><span class="tile-icon">🔑</span><span class="tile-text"><span class="tile-title">Gemini API ključ</span><span class="tile-sub" id="tileSubKey"></span></span><span class="tile-chev">›</span></button>
+      <button class="set-tile" data-sub="secApi" data-title="AI obrada"><span class="tile-icon">✨</span><span class="tile-text"><span class="tile-title">AI obrada</span><span class="tile-sub" id="tileSubKey"></span></span><span class="tile-chev">›</span></button>
       <button class="set-tile" data-sub="secBackup" data-title="Bekap podataka"><span class="tile-icon">💾</span><span class="tile-text"><span class="tile-title">Bekap podataka</span><span class="tile-sub" id="tileSubBackup"></span></span><span class="tile-chev">›</span></button>
       <button class="set-tile" data-sub="secTrash" data-title="Korpa"><span class="tile-icon">♻️</span><span class="tile-text"><span class="tile-title">Korpa</span><span class="tile-sub" id="tileSubTrash"></span></span><span class="tile-chev">›</span></button>
       <div class="set-version" id="appVersionLabel"></div>
@@ -603,6 +623,7 @@
     </div>
 
     <div class="set-sub" id="secApi" hidden>
+        <div class="ai-set-lbl" style="margin-top:0;">ključ</div>
         <div class="field">
           <label>Gemini API ključ</label>
           <div style="display:flex; gap:8px;">
@@ -616,6 +637,10 @@
           <button class="btn btn-primary" style="flex:1;" id="saveApiBtn">Sačuvaj ključ</button>
           <button class="btn btn-primary" style="flex:0 0 96px; background:linear-gradient(135deg,#d9634f,#8a3527); color:#fff;" id="deleteApiBtn">Obriši</button>
         </div>
+        <div class="ai-set-lbl">model</div>
+        <div id="aiModelList"></div>
+        <div class="settings-hint" style="margin-top:0;">Izabrani model radi sve AI poslove (prevod i ispravka prevoda). Flash-Lite: ako za 3 sekunde ne počne da odgovara, uskače i 3.8 Flash. 3.8 Flash prvo razmišlja, pa se čeka; Flash-Lite uskače samo ako on javi grešku ili ne odgovori.</div>
+        <div id="aiDnevnikBox"></div>
     </div>
 
     <div class="set-sub" id="secVoices" hidden>
@@ -1441,13 +1466,13 @@ document.getElementById('exitLeaveBtn').onclick = ()=>{
 };
 
 /* ============ podešavanja: pločice i podekrani ============ */
-const APP_VERSION = 100;
+const APP_VERSION = 101;
 let settingsSubOpen = null; // id otvorenog podekrana ili null (pločice)
 function jezikWord(n){ return (n % 10 === 1 && n % 100 !== 11) ? 'jezik' : 'jezika'; }
 function renderSettingsTiles(){
   const accentName = { '':'zlatna', blue:'plava', green:'zelena' }[accentChoice] || 'zlatna';
   document.getElementById('tileSubTheme').textContent = (theme === 'light' ? 'svetla' : 'tamna') + ' · ' + accentName;
-  document.getElementById('tileSubKey').textContent = apiKey ? 'ključ je sačuvan' : 'ključ nije unet';
+  document.getElementById('tileSubKey').textContent = (apiKey ? 'ključ je sačuvan' : 'ključ nije unet') + ' · ' + aidnModel(aiModelId()).name;
   document.getElementById('tileSubLang').textContent = `${langs.length} ${jezikWord(langs.length)}`;
   document.getElementById('tileSubVoice').textContent = 'brzina ' + Math.round((speechRate - 0.6) / 0.8 * 100);
   document.getElementById('tileSubBackup').textContent = lastBackupTs ? 'poslednji bekap: ' + formatBackupDate(lastBackupTs) : 'bekap još nikad nije pravljen';
@@ -1519,7 +1544,8 @@ const GUIDE = [
  ],
  [
   "Gemini ključ i ostalo",
-  "Za prevod je potreban Gemini API ključ: pravi se besplatno na aistudio.google.com (Get API key) i nalepi u Podešavanja → Gemini API ključ, pa dodirni „Sačuvaj ključ“. Čuva se samo na ovom telefonu.",
+  "Za prevod je potreban Gemini API ključ: pravi se besplatno na aistudio.google.com (Get API key) i nalepi u Podešavanja → AI obrada, pa dodirni „Sačuvaj ključ“. Čuva se samo na ovom telefonu.",
+  "U istom ekranu biraš model: Gemini 3.5 Flash-Lite (najjeftiniji i brz) ili Gemini 3.8 Flash (jači i skuplji). Ispod se vidi trošak i poslednje obrade: koji model je odgovorio i za koliko vremena.",
   "Podešavanja → Izgled: tamna ili svetla pozadina i boja akcenta. Na dnu Podešavanja piše broj verzije aplikacije."
  ]
 ];
@@ -1537,7 +1563,7 @@ function openSettingsSub(id, title){
   settingsOverlay.querySelector('.modal').scrollTop = 0;
   if(id === 'secTrash'){ trashSel = new Set(); resetTrashDaysField(); renderTrashList(); }
   if(id === 'secBackup'){ resetBackupDaysField(); }
-  if(id === 'secApi'){ apiKeyInput.value = apiKey; }
+  if(id === 'secApi'){ apiKeyInput.value = apiKey; renderAiPanel(); }
   if(id === 'secGuide'){ document.querySelectorAll('#guideList details').forEach(d=> d.open = false); }
 }
 document.querySelectorAll('#settingsTiles .set-tile[data-sub]').forEach(t=>{
@@ -2534,7 +2560,7 @@ async function submitVoiceInput(){
     showNote('Nedostaje Gemini API ključ — dodaj ga u podešavanjima (⚙).', { warn:true });
     voiceInput.blur(); // v89: dugme Pošalji više ne odnosi fokus — podešavanja se otvaraju bez tastature
     openSettings();
-    openSettingsSub('secApi', 'Gemini API ključ');
+    openSettingsSub('secApi', 'AI obrada');
     return;
   }
   if(!navigator.onLine){
@@ -2698,6 +2724,7 @@ function friendlyErrorMessage(err){
   if(/API greška 5\d\d/.test(msg)){
     return 'Google AI je trenutno preopterećen (pokušano 4 puta, i rezervnim modelom). Probaj ponovo za par minuta.';
   }
+  if(/^(Google AI je|Server nije odgovorio|Ne mogu da se povežem|Gemini API ključ nije|Google nije prihvatio)/.test(msg)) return msg;
   if(/Model nije vratio|Prazan odgovor/.test(msg)){
     return 'Model nije vratio odgovor — probaj ponovo.';
   }
@@ -2751,11 +2778,14 @@ JSON: {"cleaned":"...","translation":"..."}`;
   ];
 
   const rejections = [];
+  const aiLog = [], aiT0 = Date.now(), jobName = 'Prevod: ' + String(rawText).slice(0, 50);
+  try{
   for(let formIdx = 0; formIdx < forms.length; formIdx++){
-    const resp = await geminiFetch({
+    /* v101: modul gemini — izabrani model, drugi rezervni; 3.8 Flash dobija thinkingLevel 'low' (AIDN_THINK) */
+    const resp = await geminiFetch(aiModels(), {
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: forms[formIdx].gc
-    });
+    }, 20000, AIDN_THINK, aiLog);
     if(!resp.ok){
       const errText = await resp.text().catch(()=> '');
       if(resp.status === 400 && formIdx < forms.length - 1){
@@ -2770,6 +2800,7 @@ JSON: {"cleaned":"...","translation":"..."}`;
     }
     saveAiFormatStatus(forms[formIdx].mode, rejections);
     const data = await resp.json();
+    aiDnevnikAdd({ name: jobName, model: resp.geminiModel, usage: data.usageMetadata, ms: Date.now() - aiT0, log: aiLog });
     const raw = data.candidates?.[0]?.content?.parts?.[0]?.text;
     if(!raw) throw new Error('Prazan odgovor od modela.');
     let parsed;
@@ -2779,51 +2810,283 @@ JSON: {"cleaned":"...","translation":"..."}`;
     if(!translation) throw new Error('Model nije vratio prevod.');
     return { cleaned: (typeof parsed.cleaned === 'string' && parsed.cleaned) ? parsed.cleaned : rawText, translation };
   }
+  }catch(e){ aiDnevnikFail({ name: jobName, err: e && e.message, log: aiLog }); throw e; }
 }
 
-/* v92: Gemini poziv po uzoru na Troškove v23 / Apoteku v45 (zvanično, ai.google.dev 14.10.2026):
-   glavni gemini-3.5-flash-lite → ~1 s glavni → ~2 s rezervni gemini-3.6-flash → ~4 s rezervni.
-   Ponavljaju se samo 408, 429, 5xx i tajm-aut (20 s); novi pokušaj se ne počinje posle 45 s ukupno.
-   Ostali odgovori (i 400 zbog oblika odgovora) vraćaju se pozivaocu odmah. Ključ ide u zaglavlju x-goog-api-key.
-   Oba modela primaju thinkingLevel 'minimal'; temperature se ne šalje. */
-const GEMINI_MODEL = 'gemini-3.5-flash-lite';
-const GEMINI_MODEL_BACKUP = 'gemini-3.6-flash';
-const GEMINI_RETRY_STATUS = [408, 429, 500, 502, 503, 504];
-const GEMINI_TIMEOUT_MS = 20000;
-const GEMINI_TOTAL_MS = 45000;
-function geminiPause(ms){ return new Promise(r => setTimeout(r, ms + Math.floor(Math.random()*400))); }
-async function geminiFetch(body){
-  const plan = [[GEMINI_MODEL,0],[GEMINI_MODEL,1000],[GEMINI_MODEL_BACKUP,2000],[GEMINI_MODEL_BACKUP,4000]];
-  const t0 = Date.now();
-  let last = 0;
-  for(let i = 0; i < plan.length; i++){
-    if(i > 0 && Date.now() - t0 > GEMINI_TOTAL_MS) break;
-    if(plan[i][1]) await geminiPause(plan[i][1]);
-    const controller = new AbortController();
-    const timeoutId = setTimeout(()=> controller.abort(), GEMINI_TIMEOUT_MS);
-    let resp;
-    try{
-      resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + plan[i][0] + ':generateContent', {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json', 'x-goog-api-key': apiKey },
-        body: JSON.stringify(body),
-        signal: controller.signal
-      });
-    }catch(err){
-      clearTimeout(timeoutId);
-      if(err.name === 'AbortError'){ last = 'timeout'; continue; }
-      throw err;
-    }
-    clearTimeout(timeoutId);
-    if(GEMINI_RETRY_STATUS.indexOf(resp.status) < 0) return resp;
-    last = resp.status;
-    await resp.text().catch(()=> '');
-  }
-  if(last === 'timeout') throw new Error('Server ne odgovara (tajm-aut).');
-  const err = new Error(`API greška ${last}: posle više pokušaja`);
-  err.status = last;
-  throw err;
+/* MODUL gemini v5 */
+/* v5 (Apoteka v58): poruka o grešci sadrži tačan tekst Google-a.
+   v4 (Apoteka v57): odgovor zadržava groundingMetadata (izvori pretrage google_search).
+   v3 — izvor: Arhiva v173–174 (brzina AI, probano na telefonu 20.10.2026.); v3: Troškovi v40 (20.10.2026.)
+Isti poziv kao v1: geminiFetch([glavni, rezervni], body, timeoutMs[, think[, log]]) → Response u obliku generateContent
+(resp.ok / resp.status / resp.json()), pa ostatak aplikacije ostaje isti. Greške kroz geminiHttpError.
+- resp.geminiModel = model koji je stvarno odgovorio; log (niz, neobavezno) dobija svaki pokušaj {st, ms, m}
+  (st: HTTP kod ili 'T' = bez odgovora) — za modul ai-dnevnik.
+- Odgovor stiže u delovima (streamGenerateContent?alt=sse): zna se kad model POČNE da odgovara.
+- Glavni bez prvog dela za GEMINI_HEDGE_MS (+1,5 s po MB zahteva) → istovremeno rezervni; važi prvi gotov, drugi se prekida.
+  v3: NE važi kad glavni ima think (model koji razmišlja, npr. 3.8 Flash): korisnik ga je izabrao, pa se čeka; rezervni
+  uskače samo na grešku ili posle timeoutMs bez odgovora (pouka Troškovi v39: 3.8 Flash ne počne za 3 s, Flash-Lite ga pretekne).
+- 429 → odmah rezervni (isti model se više ne pokušava); 408/5xx/bez odgovora → odmah rezervni, pa glavni (~1 s), pa
+  rezervni (~2 s) — najviše 4 pokušaja. Ostale greške (400, 401, 404) se vraćaju odmah.
+- timeoutMs = najduže čekanje bez ijednog dela (pre prvog i između delova).
+- think (neobavezno): {'gemini-3.8-flash':'low'} → generationConfig.thinkingConfig.thinkingLevel za taj model.
+  3.5 Flash-Lite: ne slati (podrazumevano minimal); 3.8 Flash: 'low' (minimal → 400).
+Prilagođava se: getApiKey() u aplikaciji; tekstovi poruka.
+*/
+const GEMINI_RETRY_STATUS = [408,429,500,502,503,504];
+const GEMINI_HEDGE_MS = 3000, GEMINI_HEDGE_PER_MB = 1500;
+function geminiErrorText(body){
+  try{ const j = JSON.parse(body); if(j && j.error && j.error.message) return String(j.error.message); }catch(e){}
+  return String(body||'');
 }
+function geminiHttpError(status, body){
+  if(status===401) return new Error('Google nije prihvatio ključ (401 - neautorizovan). Proveri da li si ključ tačno nalepio u Podešavanjima, ili napravi nov ključ na aistudio.google.com.');
+  if(status===400 && /API key/i.test(body)) return new Error('Gemini API ključ nije važeći. Proveri ga u Podešavanjima.');
+  return new Error('Gemini greška ('+status+'): '+geminiErrorText(body).slice(0,200));
+}
+/* SSE delovi (ili običan JSON) → jedan odgovor oblika generateContent; null = nečitljivo */
+function geminiCollect(txt){
+  const t = String(txt || '').trim();
+  let frames = [];
+  if(t[0] === '{' || t[0] === '['){
+    try{ const j = JSON.parse(t); frames = Array.isArray(j) ? j : [j]; }catch(e){ return null; }
+  } else {
+    t.split(/\r?\n\r?\n/).forEach(ev=>{
+      const d = ev.split(/\r?\n/).filter(l=>l.indexOf('data:') === 0).map(l=>l.slice(5).replace(/^ /, '')).join('\n');
+      if(!d.trim()) return;
+      try{ frames.push(JSON.parse(d)); }catch(e){}
+    });
+  }
+  frames = frames.filter(f=>f && typeof f === 'object');
+  if(!frames.length) return null;
+  const er = frames.find(f=>f.error);
+  if(er) return {error:er.error};
+  let text = '', finish = '', usage = null, pf = null, cand = false, gm = null;
+  frames.forEach(f=>{
+    if(f.promptFeedback) pf = f.promptFeedback;
+    if(f.usageMetadata) usage = f.usageMetadata;
+    const c = (f.candidates || [])[0];
+    if(!c) return;
+    cand = true;
+    if(c.finishReason) finish = c.finishReason;
+    if(c.groundingMetadata) gm = c.groundingMetadata;   /* v4 */
+    ((c.content || {}).parts || []).forEach(p=>{ if(typeof p.text === 'string' && !p.thought) text += p.text; });
+  });
+  const data = {candidates:cand ? [{content:{role:'model', parts:[{text}]}, finishReason:finish}] : [], usageMetadata:usage || {}};
+  if(gm && data.candidates[0]) data.candidates[0].groundingMetadata = gm;
+  if(pf) data.promptFeedback = pf;
+  return {data};
+}
+/* Jedan pokušaj: {st: HTTP kod | 'T' (bez odgovora) | 'N' (mreža) | 'X' (prekinuli smo), res, txt} */
+async function geminiAttempt(model, bodyStr, key, ctl, idleMs, onFirst){
+  let timedOut = false, first = false, idle = null;
+  const armIdle = ()=>{ clearTimeout(idle); idle = setTimeout(()=>{ timedOut = true; ctl.abort(); }, idleMs); };
+  armIdle();
+  try{
+    const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':streamGenerateContent?alt=sse',
+      {method:'POST', headers:{'Content-Type':'application/json', 'x-goog-api-key':key}, body:bodyStr, signal:ctl.signal});
+    if(!res.ok){
+      let txt = await res.text();
+      try{ const j = JSON.parse(txt); if(Array.isArray(j) && j[0]) txt = JSON.stringify(j[0]); }catch(e){}
+      return {st:res.status, txt, res:new Response(txt, {status:res.status, headers:{'Content-Type':'application/json'}})};
+    }
+    let s = '';
+    if(res.body && res.body.getReader){
+      const rd = res.body.getReader(), dec = new TextDecoder();
+      for(;;){
+        const r = await rd.read();
+        if(r.done) break;
+        if(r.value && r.value.length){ if(!first){ first = true; if(onFirst) onFirst(); } armIdle(); s += dec.decode(r.value, {stream:true}); }
+      }
+      s += dec.decode();
+    } else s = await res.text();
+    const g = geminiCollect(s);
+    if(!g) return {st:'N'};
+    if(g.error){
+      const st = Number(g.error.code) || 500, txt = JSON.stringify({error:g.error});
+      return {st, txt, res:new Response(txt, {status:st, headers:{'Content-Type':'application/json'}})};
+    }
+    return {st:200, res:new Response(JSON.stringify(g.data), {status:200, headers:{'Content-Type':'application/json'}})};
+  }catch(e){
+    if(timedOut) return {st:'T'};
+    if(ctl.signal.aborted) return {st:'X'};
+    return {st:'N', msg:e && e.message};
+  }finally{ clearTimeout(idle); }
+}
+function geminiFetch(models, body, timeoutMs, think, log){
+  const key = getApiKey();
+  const queue = [[models[0],0],[models[1],0],[models[0],1000],[models[1],2000]].filter(x=>x[0]);
+  const cache = {};
+  const bodyFor = m=>{
+    if(cache[m]) return cache[m];
+    let b = body;
+    if(think && think[m]) b = Object.assign({}, body, {generationConfig:Object.assign({}, body.generationConfig || {}, {thinkingConfig:{thinkingLevel:think[m]}})});
+    return (cache[m] = JSON.stringify(b));
+  };
+  const hedgeMs = models[1] && !(think && think[models[0]]) ? GEMINI_HEDGE_MS + Math.round(bodyFor(models[0]).length / 1048576 * GEMINI_HEDGE_PER_MB) : 0;
+  return new Promise((resolve, reject)=>{
+    let next = 0, pending = 0, tries = 0, done = false, lastErr = null, hardErr = null, netMsg = '', pauseTm = null, hedgeTm = null;
+    const live = new Map(), dead = new Set();   /* ctl → {m, t0, first} */
+    const finish = fn=>{ if(done) return; done = true; clearTimeout(pauseTm); clearTimeout(hedgeTm); live.forEach((v, c)=>c.abort()); live.clear(); fn(); };
+    const pick = ()=>{ while(next < queue.length && dead.has(queue[next][0])) next++; return next < queue.length ? queue[next++] : null; };
+    const start = wait=>{
+      const q = pick(); if(!q) return false;
+      pending++;
+      if(wait && q[1]) pauseTm = setTimeout(()=>{ pauseTm = null; if(!done) run(q[0]); }, q[1] + Math.floor(Math.random() * 400));
+      else run(q[0]);
+      return true;
+    };
+    const end = ()=>{
+      const e = hardErr || lastErr;
+      if(e && e.st !== 'T') return finish(()=>{
+        /* v5: uz našu poruku ide i tačan tekst Google-a (v4 ga je sakrivao — pouka Apoteka v57: 429 nije uvek „sačekaj malo“) */
+        const gt = e.txt ? ' Poruka Google-a: ' + geminiErrorText(e.txt).slice(0, 220) : '';
+        if(e.st === 429 && !hardErr) reject(new Error('Google AI je odbio zahtev (429 – ograničenje na tvom nalogu, i na rezervnom modelu).' + gt));
+        else if(GEMINI_RETRY_STATUS.indexOf(e.st) >= 0 && !hardErr) reject(new Error('Google AI je trenutno preopterećen (' + e.st + '). Aplikacija je pokušala ' + tries + ' puta, i sa rezervnim modelom. Probaj ponovo za par minuta.' + gt));
+        else { e.res.geminiModel = e.m; resolve(e.res); }
+      });
+      if(e) return finish(()=>reject(new Error('Server nije odgovorio na vreme. Proveri internet i probaj ponovo.')));
+      finish(()=>reject(new Error('Ne mogu da se povežem sa AI servisom: ' + netMsg)));
+    };
+    async function run(m){
+      const idx = tries++, ctl = new AbortController(), me = {m, t0:Date.now(), first:false};
+      live.set(ctl, me);
+      if(idx === 0 && hedgeMs) hedgeTm = setTimeout(()=>{ hedgeTm = null; if(!done && next === 1) start(false); }, hedgeMs);
+      const r = await geminiAttempt(m, bodyFor(m), key, ctl, timeoutMs, ()=>{ me.first = true; if(idx === 0 && hedgeTm){ clearTimeout(hedgeTm); hedgeTm = null; } });
+      live.delete(ctl); pending--;
+      if(done || r.st === 'X') return;
+      if(idx === 0 && hedgeTm){ clearTimeout(hedgeTm); hedgeTm = null; }
+      if(r.st === 'N'){ netMsg = r.msg || ''; if(!pending) end(); return; }
+      if(log) log.push({st:r.st, ms:Date.now() - me.t0, m});
+      if(r.st === 200){
+        /* pokušaj koji do pobede drugog nije ni počeo da odgovara ulazi u log kao 'T' (vidi se zašto je čekano) */
+        if(log) live.forEach(v=>{ if(!v.first) log.splice(log.length - 1, 0, {st:'T', ms:Date.now() - v.t0, m:v.m}); });
+        r.res.geminiModel = m;
+        return finish(()=>resolve(r.res));
+      }
+      r.m = m;
+      if(r.st === 'T' || GEMINI_RETRY_STATUS.indexOf(r.st) >= 0){
+        if(r.st === 429) dead.add(m);
+        lastErr = r;
+        if(!pending && (hardErr || !start(true))) end();
+        return;
+      }
+      hardErr = hardErr || r;
+      if(!pending) end();
+    }
+    start(false);
+  });
+}
+/* MODUL ai-dnevnik v1 */
+/* izvor: Arhiva v174 (Podešavanja → AI obrada: trošak i poslednje obrade, probano 20.10.2026.)
+Upotreba (uz modul gemini v2):
+  const log = [], t0 = Date.now();
+  try{
+    const resp = await geminiFetch(models, body, 60000, AIDN_THINK, log);
+    const data = await resp.json();  …
+    aiDnevnikAdd({name:'Glasovni unos: …', model:resp.geminiModel, usage:data.usageMetadata, ms:Date.now() - t0, log});
+  }catch(e){ aiDnevnikFail({name:'…', err:e.message, log}); throw e; }
+  HTML: aiDnevnikHtml() → blokovi „trošak“ i „poslednje obrade“ (ubaciti u ekran AI podešavanja; izbor modela i ključ
+  ostaju kako ih aplikacija već ima, izgled po uzoru na Arhivu). CSS: ai-dnevnik.css (koristi --ink, --ink-dim, --line,
+  --danger i klasu settings-card iz aplikacije).
+Prilagođava se: AIDN_KEY (prefiks aplikacije), AIDN_MODELS (isti spisak kao u aplikaciji, cene iz zvaničnog cenovnika).
+*/
+const AIDN_KEY = 'vp_aiUsage';
+/* Cene po 1M tokena (USD), plaćeni nivo. 3.5 Flash-Lite: deepmind.google/models/gemini/flash-lite (20.10.2026.);
+   3.8 Flash: ai.google.dev/gemini-api/docs/pricing (29.09.2026.). think = thinkingLevel za modul gemini. */
+const AIDN_MODELS = [
+  {id:'gemini-3.5-flash-lite', name:'Gemini 3.5 Flash-Lite', prices:[{to:'', inp:0.30, out:2.50}]},
+  {id:'gemini-3.8-flash', name:'Gemini 3.8 Flash', think:'low', prices:[{to:'2026-12-31', inp:0.75, out:3.75}, {to:'', inp:1.50, out:7.50}]}
+];
+const AIDN_THINK = Object.fromEntries(AIDN_MODELS.filter(m=>m.think).map(m=>[m.id, m.think]));
+function aidnEsc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function aidnYmd(){ const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function aidnInt(n){ try{ return Number(n || 0).toLocaleString('sr-Latn-RS'); }catch(e){ return String(n || 0); } }
+function aidnUsd(v){
+  v = Number(v) || 0;
+  const d = v === 0 ? 0 : (v < 0.01 ? 4 : (v < 1 ? 3 : 2));
+  let s; try{ s = v.toLocaleString('sr-Latn-RS', {minimumFractionDigits:d, maximumFractionDigits:d}); }catch(e){ s = v.toFixed(d); }
+  return s + ' $';
+}
+function aidnSec(ms){ return (Math.round((ms || 0) / 100) / 10).toFixed(1).replace('.', ',') + ' s'; }
+function aidnModel(id){ return AIDN_MODELS.find(m=>m.id === id) || null; }
+function aidnCost(id, inp, out){
+  const m = aidnModel(id); if(!m) return 0;
+  const d = aidnYmd(), p = m.prices.find(x=>!x.to || d <= x.to);
+  return (inp * p.inp + out * p.out) / 1e6;
+}
+function aidnLoad(){
+  const empty = ()=>({n:0, inp:0, out:0, usd:0});
+  try{
+    const o = JSON.parse(localStorage.getItem(AIDN_KEY) || 'null');
+    if(o && typeof o === 'object') return {months:o.months || {}, total:o.total || empty(), last:Array.isArray(o.last) ? o.last : []};
+  }catch(e){}
+  return {months:{}, total:empty(), last:[]};
+}
+function aidnSave(u){ try{ localStorage.setItem(AIDN_KEY, JSON.stringify(u)); }catch(e){} }
+function aidnAtt(log){ return (log || []).map(a=>[a.st, a.ms]).slice(-12); }
+/* e: {name, model, usage: usageMetadata iz odgovora, ms, log, parts} */
+function aiDnevnikAdd(e){
+  const um = e.usage || {};
+  const inp = um.promptTokenCount || 0, out = (um.candidatesTokenCount || 0) + (um.thoughtsTokenCount || 0);
+  const usd = aidnCost(e.model, inp, out);
+  const u = aidnLoad(), mk = aidnYmd().slice(0, 7);
+  const add = o=>{ o = o || {}; o.n = (o.n || 0) + 1; o.inp = (o.inp || 0) + inp; o.out = (o.out || 0) + out; o.usd = (o.usd || 0) + usd; return o; };
+  u.months[mk] = add(u.months[mk]); u.total = add(u.total);
+  Object.keys(u.months).sort().slice(0, -12).forEach(k=>{ delete u.months[k]; });
+  u.last.unshift({ts:Date.now(), model:e.model || '', name:String(e.name || '').slice(0, 80), inp, out, usd,
+    tm:{ai:e.ms || 0, tries:(e.log || []).length || 1, parts:e.parts || 1, att:aidnAtt(e.log)}});
+  u.last = u.last.slice(0, 10);
+  aidnSave(u);
+}
+/* neuspela obrada: vidi se crveno, ne ulazi u trošak */
+function aiDnevnikFail(e){
+  const u = aidnLoad(), log = e.log || [];
+  u.last.unshift({ts:Date.now(), model:(log[log.length - 1] || {}).m || e.model || '', name:String(e.name || '').slice(0, 80),
+    fail:String(e.err || '').slice(0, 200), tm:{att:aidnAtt(log)}});
+  u.last = u.last.slice(0, 10);
+  aidnSave(u);
+}
+function aidnAttText(att){
+  return 'pokušaji: ' + att.map(([st, ms])=>st === 'T' ? 'bez odgovora ' + aidnSec(ms) : (st >= 200 && st < 300) ? 'uspeh ' + aidnSec(ms) : st + ' posle ' + aidnSec(ms)).join(' · ');
+}
+function aiDnevnikHtml(){
+  const u = aidnLoad(), cm = u.months[aidnYmd().slice(0, 7)] || {n:0, inp:0, out:0, usd:0};
+  const row = o=>aidnInt(o.n || 0) + ' obrada · ' + aidnInt((o.inp || 0) + (o.out || 0)) + ' tokena · ≈ ' + aidnUsd(o.usd || 0);
+  const when = ts=>{ const d = new Date(ts || 0); return d.getDate() + '.' + (d.getMonth() + 1) + '. ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
+  const mname = id=>{ const m = aidnModel(id); return m ? m.name : (id || ''); };
+  return '<div class="ai-set-lbl">trošak</div><div class="settings-card">' +
+    '<div class="ai-use-row"><span>ovaj mesec</span><b>' + aidnEsc(row(cm)) + '</b></div>' +
+    '<div class="ai-use-row"><span>ukupno</span><b>' + aidnEsc(row(u.total)) + '</b></div></div>' +
+    '<div class="ai-set-lbl">poslednje obrade</div><div class="settings-card">' +
+    (u.last.length ? u.last.map(x=>{
+      const att = x.tm && x.tm.att && x.tm.att.length ? '<small>' + aidnEsc(aidnAttText(x.tm.att)) + '</small>' : '';
+      if(x.fail != null) return '<div class="ai-last ai-fail">✗ ' + aidnEsc(x.name) + '<small>' + aidnEsc(when(x.ts) + ' · ' + mname(x.model)) + '</small>' +
+        '<small class="ai-fail-tx">' + aidnEsc(x.fail) + '</small>' + att + '</div>';
+      const tm = x.tm || {};
+      return '<div class="ai-last">' + aidnEsc(x.name) + '<small>' + aidnEsc(when(x.ts) + ' · ' + mname(x.model)) + '</small>' +
+        '<small>' + aidnEsc(aidnInt(x.inp) + ' ulaz · ' + aidnInt(x.out) + ' izlaz · ≈ ' + aidnUsd(x.usd)) + '</small>' +
+        '<small>' + aidnEsc('vreme: Google ' + aidnSec(tm.ai) + (tm.parts > 1 ? ' · delova: ' + tm.parts : '') + ' · pokušaja: ' + (tm.tries || 1)) + '</small>' + att + '</div>';
+    }).join('') : '<div class="ai-use-row"><span>još nema obrada.</span></div>') + '</div>' +
+    '<div class="settings-hint">na besplatnom nivou obrada ništa ne košta. iznos pokazuje koliko bi koštalo na plaćenom nivou, po Google-ovim cenama (izlaz uključuje i „razmišljanje“ modela).</div>';
+}
+/* v101: AI obrada — izbor modela (uzor Troškovi v39–v40) */
+const AI_MODEL_KEY = 'vp_aiModel';
+function getApiKey(){ return apiKey; }
+function aiModelId(){ const v = safeGetItem(AI_MODEL_KEY); return aidnModel(v) ? v : AIDN_MODELS[0].id; }
+function aiModels(){ const m = aiModelId(); return [m, (AIDN_MODELS.find(x=> x.id !== m) || {}).id]; }
+function renderAiPanel(){
+  const am = aiModelId();
+  document.getElementById('aiModelList').innerHTML = AIDN_MODELS.map(x=> '<button type="button" class="ai-opt' + (x.id === am ? ' active' : '') + '" data-model="' + x.id + '"><span>' +
+    escapeHtml(x.name) + '<small>' + (x.think ? 'jači i skuplji' : 'najjeftiniji i brz') + '</small></span><span class="ai-chk">' + (x.id === am ? '✓' : '') + '</span></button>').join('');
+  document.getElementById('aiDnevnikBox').innerHTML = aiDnevnikHtml();
+}
+document.getElementById('aiModelList').addEventListener('click', (e)=>{
+  const b = e.target.closest('.ai-opt');
+  if(!b || !aidnModel(b.dataset.model) || b.dataset.model === aiModelId()) return;
+  safeSetItem(AI_MODEL_KEY, b.dataset.model);
+  renderAiPanel(); renderSettingsTiles();
+  showNote('Model: ' + aidnModel(b.dataset.model).name);
+});
 
 /* ============ text to speech ============ */
 function getVoiceLangOptions(){

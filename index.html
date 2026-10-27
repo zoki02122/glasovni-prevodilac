@@ -639,7 +639,7 @@
         </div>
         <div class="ai-set-lbl">model</div>
         <div id="aiModelList"></div>
-        <div class="settings-hint" style="margin-top:0;">Izabrani model radi sve AI poslove (prevod i ispravka prevoda). Flash-Lite: ako za 3 sekunde ne počne da odgovara, uskače i 3.8 Flash. 3.8 Flash prvo razmišlja, pa se čeka; Flash-Lite uskače samo ako on javi grešku ili ne odgovori.</div>
+        <div class="settings-hint" style="margin-top:0;">Izabrani model radi sve AI poslove (prevod i ispravka prevoda). Flash-Lite: ako za 1,5 sekundu ne počne da odgovara, isti zahtev se šalje još jednom, pa važi brži odgovor; 3.8 Flash uskače samo na grešku. 3.8 Flash prvo razmišlja, pa se čeka; Flash-Lite uskače samo ako on javi grešku ili ne odgovori.</div>
         <div id="aiDnevnikBox"></div>
     </div>
 
@@ -1466,7 +1466,7 @@ document.getElementById('exitLeaveBtn').onclick = ()=>{
 };
 
 /* ============ podešavanja: pločice i podekrani ============ */
-const APP_VERSION = 101;
+const APP_VERSION = 102;
 let settingsSubOpen = null; // id otvorenog podekrana ili null (pločice)
 function jezikWord(n){ return (n % 10 === 1 && n % 100 !== 11) ? 'jezik' : 'jezika'; }
 function renderSettingsTiles(){
@@ -2785,7 +2785,7 @@ JSON: {"cleaned":"...","translation":"..."}`;
     const resp = await geminiFetch(aiModels(), {
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: forms[formIdx].gc
-    }, 20000, AIDN_THINK, aiLog);
+    }, 20000, AIDN_THINK, aiLog, { hedgeMs: 1500, hedgeSame: true });
     if(!resp.ok){
       const errText = await resp.text().catch(()=> '');
       if(resp.status === 400 && formIdx < forms.length - 1){
@@ -2813,8 +2813,9 @@ JSON: {"cleaned":"...","translation":"..."}`;
   }catch(e){ aiDnevnikFail({ name: jobName, err: e && e.message, log: aiLog }); throw e; }
 }
 
-/* MODUL gemini v5 */
-/* v5 (Apoteka v58): poruka o grešci sadrži tačan tekst Google-a.
+/* MODUL gemini v6 */
+/* v6 (Prevodilac v102): opts.hedgeSame — rano dupliranje istim modelom.
+   v5 (Apoteka v58): poruka o grešci sadrži tačan tekst Google-a.
    v4 (Apoteka v57): odgovor zadržava groundingMetadata (izvori pretrage google_search).
    v3 — izvor: Arhiva v173–174 (brzina AI, probano na telefonu 20.10.2026.); v3: Troškovi v40 (20.10.2026.)
 Isti poziv kao v1: geminiFetch([glavni, rezervni], body, timeoutMs[, think[, log]]) → Response u obliku generateContent
@@ -2828,6 +2829,8 @@ Isti poziv kao v1: geminiFetch([glavni, rezervni], body, timeoutMs[, think[, log
 - 429 → odmah rezervni (isti model se više ne pokušava); 408/5xx/bez odgovora → odmah rezervni, pa glavni (~1 s), pa
   rezervni (~2 s) — najviše 4 pokušaja. Ostale greške (400, 401, 404) se vraćaju odmah.
 - timeoutMs = najduže čekanje bez ijednog dela (pre prvog i između delova).
+- opts (neobavezno, v6): {hedgeMs, hedgeSame}. hedgeSame: posle hedgeMs bez prvog dela šalje se ISTI zahtev istom (glavnom)
+  modelu još jednom, važi prvi gotov; rezervni model ostaje samo za grešku/tajm-aut. Bez opts sve kao v5.
 - think (neobavezno): {'gemini-3.8-flash':'low'} → generationConfig.thinkingConfig.thinkingLevel za taj model.
   3.5 Flash-Lite: ne slati (podrazumevano minimal); 3.8 Flash: 'low' (minimal → 400).
 Prilagođava se: getApiKey() u aplikaciji; tekstovi poruka.
@@ -2912,7 +2915,8 @@ async function geminiAttempt(model, bodyStr, key, ctl, idleMs, onFirst){
     return {st:'N', msg:e && e.message};
   }finally{ clearTimeout(idle); }
 }
-function geminiFetch(models, body, timeoutMs, think, log){
+function geminiFetch(models, body, timeoutMs, think, log, opts){
+  opts = opts || {};
   const key = getApiKey();
   const queue = [[models[0],0],[models[1],0],[models[0],1000],[models[1],2000]].filter(x=>x[0]);
   const cache = {};
@@ -2922,7 +2926,7 @@ function geminiFetch(models, body, timeoutMs, think, log){
     if(think && think[m]) b = Object.assign({}, body, {generationConfig:Object.assign({}, body.generationConfig || {}, {thinkingConfig:{thinkingLevel:think[m]}})});
     return (cache[m] = JSON.stringify(b));
   };
-  const hedgeMs = models[1] && !(think && think[models[0]]) ? GEMINI_HEDGE_MS + Math.round(bodyFor(models[0]).length / 1048576 * GEMINI_HEDGE_PER_MB) : 0;
+  const hedgeMs = (models[1] || opts.hedgeSame) && !(think && think[models[0]]) ? (opts.hedgeMs || GEMINI_HEDGE_MS) + Math.round(bodyFor(models[0]).length / 1048576 * GEMINI_HEDGE_PER_MB) : 0;
   return new Promise((resolve, reject)=>{
     let next = 0, pending = 0, tries = 0, done = false, lastErr = null, hardErr = null, netMsg = '', pauseTm = null, hedgeTm = null;
     const live = new Map(), dead = new Set();   /* ctl → {m, t0, first} */
@@ -2950,7 +2954,7 @@ function geminiFetch(models, body, timeoutMs, think, log){
     async function run(m){
       const idx = tries++, ctl = new AbortController(), me = {m, t0:Date.now(), first:false};
       live.set(ctl, me);
-      if(idx === 0 && hedgeMs) hedgeTm = setTimeout(()=>{ hedgeTm = null; if(!done && next === 1) start(false); }, hedgeMs);
+      if(idx === 0 && hedgeMs) hedgeTm = setTimeout(()=>{ hedgeTm = null; if(done || next !== 1) return; if(opts.hedgeSame){ pending++; run(models[0]); } else start(false); }, hedgeMs);
       const r = await geminiAttempt(m, bodyFor(m), key, ctl, timeoutMs, ()=>{ me.first = true; if(idx === 0 && hedgeTm){ clearTimeout(hedgeTm); hedgeTm = null; } });
       live.delete(ctl); pending--;
       if(done || r.st === 'X') return;
